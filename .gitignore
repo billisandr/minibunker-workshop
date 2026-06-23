@@ -1,0 +1,37 @@
+# --- Python ---
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.ipynb_checkpoints/
+
+# --- ROS / catkin ---
+build/
+devel/
+install/
+logs/
+*.bag
+
+# --- CNN model weights & training artifacts (release/fetch, don't commit) ---
+models/*.pt
+models/*.onnx
+models/*.ncnn*
+models/*.hef
+models/*.engine
+training/runs/
+training/datasets/
+data/
+
+# --- Large demo media (optional: comment out to version a small clip) ---
+# media/*.mp4
+
+# --- Secrets ---
+*.key
+.env
+roboflow_api_key*
+
+# --- OS / editor ---
+.DS_Store
+Thumbs.db
+*.swp
