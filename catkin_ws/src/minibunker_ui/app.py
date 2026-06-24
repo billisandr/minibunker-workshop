@@ -8,9 +8,9 @@ Python venv — fully decoupled from ROS Noetic's Python 3.8 inside the containe
 
 Panels:
   1. Live view    — the annotated /minibunker/debug_image (+ HSV mask in hsv mode)
-  2. Telemetry    — FSM state, /odom speed, detection flags
+  2. Telemetry    — FSM state, /odom speed, mission + target/hazard flags
   3. Knob panel   — detector backend, CNN conf, HSV ranges, gains, speed caps
-  4. Controls     — ARM / DISARM (safety gate), backend + platform switch
+  4. Controls     — ARM / DISARM (safety gate), backend, Mission selector, WASD pad
 
 Knobs are set live via the rosapi set_param service; the nodes re-read the soft
 knobs each loop, so sliders take effect immediately. Backend/platform/camera
@@ -128,6 +128,17 @@ def publish_arm(client, armed):
     t.publish(roslibpy.Message({"data": bool(armed)}))
 
 
+def publish_teleop(client, lin, ang):
+    """Publish WASD *intent* on /minibunker/teleop_cmd. behavior_node honours it
+    only in TELEOP (mission/follow_item == none) and always through the ARM gate
+    + clamps, so this can never bypass DISARM."""
+    t = roslibpy.Topic(client, "/minibunker/teleop_cmd", "geometry_msgs/Twist")
+    t.publish(roslibpy.Message({
+        "linear": {"x": float(lin), "y": 0.0, "z": 0.0},
+        "angular": {"x": 0.0, "y": 0.0, "z": float(ang)},
+    }))
+
+
 # --------------------------------------------------------------------------- UI
 st.set_page_config(page_title="MiniBunker", layout="wide")
 st.title("🛰️ MiniBunker — Control Panel")
@@ -155,6 +166,10 @@ if not connected:
 with client._lock:
     snap = dict(client._latest)
 
+# Current mission drives the telemetry labels, the selector default, and whether
+# the WASD pad is live. Fetched once per rerun and reused below.
+mission = get_param(client, "/mission/follow_item", "none")
+
 # ---- top row: live view + telemetry ----
 col_view, col_tel = st.columns([3, 1])
 with col_view:
@@ -176,10 +191,13 @@ with col_tel:
         v = snap["odom"]["twist"]["twist"]
         spd = "%.2f m/s" % v["linear"]["x"]
     st.metric("Speed", spd)
+    st.metric("Mission", "teleop" if mission == "none" else "follow %s" % mission)
     ps = snap["perception"]["data"] if snap["perception"] else [0] * 7
     if len(ps) >= 7:
-        st.metric("Green ball", "seen ✅" if ps[0] > 0.5 else "—")
-        st.metric("Cone", "DANGER ⚠️" if ps[5] > 0.5 else (
+        tgt = "— (teleop)" if mission == "none" else (
+            "seen ✅" if ps[0] > 0.5 else "—")
+        st.metric("Target (%s)" % mission, tgt)
+        st.metric("Hazard", "DANGER ⚠️" if ps[5] > 0.5 else (
             "seen" if ps[4] > 0.5 else "—"))
 
 st.divider()
@@ -201,8 +219,45 @@ with tab_ctrl:
     if new_backend != backend:
         set_param(client, "/detector/backend", new_backend)
         st.toast("backend -> %s (live)" % new_backend)
+
+    # -- Mission: what the rover hunts (live). 'none' = manual WASD teleop. --
+    options = ["none", "ball", "cone"]
+    new_mission = st.selectbox(
+        "Mission — follow item", options,
+        index=options.index(mission) if mission in options else 0,
+        help="ball/cone = autonomous follow; none = manual WASD drive below.")
+    if new_mission != mission:
+        set_param(client, "/mission/follow_item", new_mission)
+        st.toast("mission -> %s (live)" % new_mission)
+
     st.caption("SAFETY: the rover boots DISARMED and publishes zero velocity "
                "until you press ARM. Keep the e-stop in hand on the real robot.")
+
+    # -- WASD drive pad (only when mission == none) --
+    st.markdown("**🎮 WASD drive**")
+    if mission != "none":
+        st.caption("Set Mission to **none** to enable manual driving.")
+    else:
+        if "teleop_intent" not in st.session_state:
+            st.session_state.teleop_intent = (0.0, 0.0)
+        tl = float(get_param(client, "/behavior/teleop/linear_speed", 0.25))
+        ta = float(get_param(client, "/behavior/teleop/angular_speed", 0.8))
+        pad = st.columns(3)
+        if pad[1].button("⬆️ W", use_container_width=True):
+            st.session_state.teleop_intent = (tl, 0.0)
+        mid = st.columns(3)
+        if mid[0].button("⬅️ A", use_container_width=True):
+            st.session_state.teleop_intent = (0.0, ta)
+        if mid[1].button("⏹️ STOP", use_container_width=True):
+            st.session_state.teleop_intent = (0.0, 0.0)
+        if mid[2].button("➡️ D", use_container_width=True):
+            st.session_state.teleop_intent = (0.0, -ta)
+        bot = st.columns(3)
+        if bot[1].button("⬇️ S", use_container_width=True):
+            st.session_state.teleop_intent = (-tl, 0.0)
+        st.caption("Click-to-set, not key-hold: intent is re-published each "
+                   "refresh and persists until STOP/DISARM. If the browser or "
+                   "link drops, behaviour's watchdog stops the rover. Needs ARM.")
 
 with tab_detect:
     st.caption("CNN confidence applies in cnn mode; HSV ranges apply in hsv mode.")
@@ -250,6 +305,13 @@ with tab_behave:
 
 st.caption("Knobs set ROS params live over rosbridge; nodes re-read soft knobs "
            "each loop. Backend/platform/camera changes need a relaunch.")
+
+# ---- teleop intent republish (keeps behaviour's watchdog fed while driving) ----
+# Re-published every rerun so the rover keeps moving until STOP/DISARM; when the
+# tab/browser closes the reruns stop, teleop_cmd stops, and the watchdog halts it.
+if mission == "none":
+    lin, ang = st.session_state.get("teleop_intent", (0.0, 0.0))
+    publish_teleop(client, lin, ang)
 
 # ---- live auto-refresh loop ----
 if live:

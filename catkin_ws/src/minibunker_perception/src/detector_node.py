@@ -14,14 +14,22 @@
 #  behavior_node never knows which one ran. The backend is re-read every frame
 #  so the Streamlit UI can flip it live.
 #
-#  perception_state Float32MultiArray layout (shared with behavior_node):
-#     [0] target_seen      (0/1)   green ball present
-#     [1] target_cx_norm   (-1..1) ball centre x, 0 = image centre, + = right
-#     [2] target_cy_norm   (-1..1) ball centre y, + = down
-#     [3] target_h_frac    (0..1)  ball bbox height / image height  (distance proxy)
-#     [4] cone_seen        (0/1)
-#     [5] cone_danger      (0/1)   a cone is big + low-centre (in the danger zone)
-#     [6] cone_cx_norm     (-1..1) nearest cone centre x
+#  perception_state Float32MultiArray layout (shared with behavior_node) — ROLE
+#  BASED, not class-based (plan2.md §3.3 option B). The detector reads the mission
+#  (follow_item + hazard_items) and packs whichever physical class is the target
+#  into the target_* slots and the nearest hazard into the hazard_* slots:
+#     [0] target_seen      (0/1)   the followed class (mission/follow_item) is present
+#     [1] target_cx_norm   (-1..1) target centre x, 0 = image centre, + = right
+#     [2] target_cy_norm   (-1..1) target centre y, + = down
+#     [3] target_h_frac    (0..1)  target bbox height / image height  (distance proxy)
+#     [4] hazard_seen      (0/1)   nearest hazard (mission/hazard_items) is present
+#     [5] hazard_danger    (0/1)   that hazard is big + low-centre (in the danger zone)
+#     [6] hazard_cx_norm   (-1..1) nearest hazard centre x
+#
+#  follow_item == none  -> no target class -> slots [0..3] stay 0 and behaviour
+#  enters TELEOP. The followed class is auto-excluded from the hazard set so a cone
+#  you are following is never simultaneously its own hazard. mission/* is re-read
+#  every frame, so the UI can switch the mission live.
 # ============================================================================
 import threading
 
@@ -40,6 +48,14 @@ from vision_msgs.msg import (
 # Class indices are fixed by the config order [green_ball, cone].
 CLASS_GREEN_BALL = 0
 CLASS_CONE = 1
+
+# mission/follow_item + mission/hazard_items name a class by a friendly string.
+# "ball" is the UI-facing alias for the green_ball class.
+NAME_TO_CLASS = {
+    "ball": CLASS_GREEN_BALL,
+    "green_ball": CLASS_GREEN_BALL,
+    "cone": CLASS_CONE,
+}
 
 
 # ---------------------------------------------------------------------------
@@ -189,6 +205,11 @@ class DetectorNode:
         self.hsv = None
         self.cnn = None
 
+        # Mission roles, re-read every frame in on_image so the UI can switch live.
+        # target_cls is None when follow_item == none (-> no target, behaviour TELEOPs).
+        self.target_cls = None
+        self.hazard_classes = {CLASS_CONE}
+
         # Danger zone: a cone counts as "danger" if its bbox height fraction is
         # >= cone_danger_frac AND its centre sits in the lower-centre of frame.
         self.cone_danger_frac = float(
@@ -225,6 +246,15 @@ class DetectorNode:
         rospy.loginfo("[detector] backend = %s", want)
         return want
 
+    # -- mission roles (re-read each frame so the UI flips them live) ----------
+    def _read_mission(self):
+        follow = str(rospy.get_param("mission/follow_item", "none")).lower()
+        self.target_cls = NAME_TO_CLASS.get(follow)  # None for 'none' / unknown
+        hazards = rospy.get_param("mission/hazard_items", ["cone"]) or []
+        cls = {NAME_TO_CLASS[n] for n in hazards if n in NAME_TO_CLASS}
+        cls.discard(self.target_cls)  # the followed class is never its own hazard
+        self.hazard_classes = cls
+
     def on_image(self, msg):
         try:
             bgr = self.bridge.imgmsg_to_cv2(msg, desired_encoding="bgr8")
@@ -238,6 +268,7 @@ class DetectorNode:
         # Re-read the active backend's "soft" knobs each frame so the Streamlit
         # UI can tune them live without a relaunch (the model itself is never
         # reloaded here — only thresholds / colour ranges).
+        self._read_mission()
         self.cone_danger_frac = float(
             rospy.get_param("behavior/avoid/cone_danger_frac", self.cone_danger_frac))
         mask = None
@@ -258,8 +289,8 @@ class DetectorNode:
         arr = Detection2DArray(header=header)
         annotated = bgr.copy()
 
-        best_ball = None       # largest green ball
-        best_cone = None       # largest cone
+        best_target = None     # largest detection of the followed class
+        best_hazard = None     # largest detection among the hazard classes
         for (cls, x, y, bw, bh, score) in dets:
             d = Detection2D(header=header)
             hyp = ObjectHypothesisWithPose()
@@ -277,21 +308,21 @@ class DetectorNode:
             cv2.putText(annotated, "%s %.2f" % (self.LABELS.get(cls, "?"), score),
                         (x, max(0, y - 6)), cv2.FONT_HERSHEY_SIMPLEX, 0.5,
                         colour, 2)
-            if cls == CLASS_GREEN_BALL and (best_ball is None or bh > best_ball[3]):
-                best_ball = (x, y, bw, bh)
-            if cls == CLASS_CONE and (best_cone is None or bh > best_cone[3]):
-                best_cone = (x, y, bw, bh)
+            if cls == self.target_cls and (best_target is None or bh > best_target[3]):
+                best_target = (x, y, bw, bh)
+            if cls in self.hazard_classes and (best_hazard is None or bh > best_hazard[3]):
+                best_hazard = (x, y, bw, bh)
 
-        # ---- perception_state ----
+        # ---- perception_state (role-based: target = followed class, hazard = nearest) ----
         st = [0.0] * 7
-        if best_ball is not None:
-            x, y, bw, bh = best_ball
+        if best_target is not None:
+            x, y, bw, bh = best_target
             st[0] = 1.0
             st[1] = ((x + bw / 2.0) / w) * 2.0 - 1.0
             st[2] = ((y + bh / 2.0) / h) * 2.0 - 1.0
             st[3] = bh / float(h)
-        if best_cone is not None:
-            x, y, bw, bh = best_cone
+        if best_hazard is not None:
+            x, y, bw, bh = best_hazard
             st[4] = 1.0
             cx_norm = ((x + bw / 2.0) / w) * 2.0 - 1.0
             cy_norm = ((y + bh / 2.0) / h)
@@ -320,8 +351,9 @@ class DetectorNode:
             rospy.logwarn_throttle(5.0, "[detector] publish debug: %s", exc)
 
     def _draw_hud(self, img, st):
-        txt = "backend:%s  ball:%d cone:%d danger:%d" % (
-            self.backend_name, int(st[0]), int(st[4]), int(st[5]))
+        follow = self.LABELS.get(self.target_cls, "none")
+        txt = "backend:%s  follow:%s  target:%d hazard:%d danger:%d" % (
+            self.backend_name, follow, int(st[0]), int(st[4]), int(st[5]))
         cv2.putText(img, txt, (8, 20), cv2.FONT_HERSHEY_SIMPLEX, 0.55,
                     (255, 255, 255), 2)
 

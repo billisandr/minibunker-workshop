@@ -11,6 +11,15 @@
 
 platform: sim                 # sim | real  (selects the launch; informational here)
 
+mission:
+  # What the rover hunts. 'none' = no autonomous follow: behaviour yields /cmd_vel
+  # to WASD teleop (see behavior/teleop + the UI pad). 'ball'/'cone' = autonomous
+  # find-and-follow of that class. Re-read live, so the UI can switch it mid-run.
+  follow_item: none           # none | ball | cone
+  # Classes treated as obstacles to AVOID. The followed class is automatically
+  # excluded from this set (a cone you are following is not also its own hazard).
+  hazard_items: [cone]        # subset of detector class names; may be empty
+
 arena:
   fence_enabled: false        # sim only: spawn the 4-wall arena boundary in Gazebo
   cone_scale: 0.3             # sim only: uniform scale on the construction_cone mesh
@@ -60,6 +69,11 @@ behavior:
     max_linear: 0.4           # hard speed caps (m/s)
     max_angular: 1.0          # rad/s
     lost_frames: 15           # frames without a target before falling back to SEARCH
+  teleop:                     # WASD pass-through, active only when mission/follow_item == none
+    timeout_ms: 400           # stop if no /minibunker/teleop_cmd within this window (watchdog)
+    publish_hz: 20.0          # rate the terminal teleop_node republishes intent (feeds watchdog)
+    linear_speed: 0.25        # m/s commanded per forward/back key (clamped to limits above)
+    angular_speed: 0.8        # rad/s commanded per turn key (clamped to limits above)
 
 drive:
   cmd_vel_topic: /cmd_vel

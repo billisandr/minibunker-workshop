@@ -12,5 +12,6 @@ catkin_package()
 
 catkin_install_python(PROGRAMS
   src/behavior_node.py
+  src/teleop_node.py
   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )
