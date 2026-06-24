@@ -109,7 +109,11 @@ def get_param(client, name, default=None):
     try:
         svc = roslibpy.Service(client, "/rosapi/get_param", "rosapi/GetParam")
         res = svc.call(roslibpy.ServiceRequest({"name": name}), timeout=3)
-        return json.loads(res["value"])
+        val = json.loads(res["value"])
+        # A missing param comes back as JSON "null" -> None (the service call
+        # itself succeeds, so this never reaches the except). Fall back to the
+        # caller's default so float()/index() sites don't get a None.
+        return default if val is None else val
     except Exception:
         return default
 
