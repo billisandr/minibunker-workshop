@@ -31,21 +31,24 @@ import roslibpy
 DEFAULT_HOST = "localhost"
 DEFAULT_PORT = 9090
 
-# latest messages, updated by roslibpy subscriber threads
-_latest = {"debug_image": None, "hsv_mask": None, "state": None,
-           "odom": None, "perception": None}
-_lock = threading.Lock()
-
 
 @st.cache_resource
 def connect(host, port):
     client = roslibpy.Ros(host=host, port=port)
     client.run()
 
+    # The message buffer lives on the CACHED client so it persists across
+    # Streamlit reruns. A module-level dict gets re-initialised to None on every
+    # rerun — before the async roslibpy callbacks can repopulate it — so the
+    # live view and telemetry read empty almost every frame.
+    latest = {"debug_image": None, "hsv_mask": None, "state": None,
+              "odom": None, "perception": None}
+    lock = threading.Lock()
+
     def _img_cb(key):
         def cb(msg):
-            with _lock:
-                _latest[key] = msg
+            with lock:
+                latest[key] = msg
         return cb
 
     def _sub(name, typ, key, throttle=0):
@@ -66,6 +69,8 @@ def connect(host, port):
         _sub("/minibunker/perception_state", "std_msgs/Float32MultiArray",
              "perception", 200),
     ]
+    client._latest = latest
+    client._lock = lock
     return client
 
 
@@ -147,8 +152,8 @@ if not connected:
     st.warning("rosbridge not connected yet — reload once the station is up.")
     st.stop()
 
-with _lock:
-    snap = dict(_latest)
+with client._lock:
+    snap = dict(client._latest)
 
 # ---- top row: live view + telemetry ----
 col_view, col_tel = st.columns([3, 1])
