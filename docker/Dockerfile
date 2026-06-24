@@ -146,7 +146,9 @@ RUN echo "source /opt/ros/noetic/setup.bash"            >> $HOME/.bashrc && \
     echo '# --- Diagnostics ---'                         >> $HOME/.bashrc && \
     echo 'alias mb_cam="rosrun image_view image_view image:=/minibunker/debug_image"' >> $HOME/.bashrc && \
     echo 'alias mb_arm="rostopic pub -1 /minibunker/arm std_msgs/Bool \"data: true\""'    >> $HOME/.bashrc && \
-    echo 'alias mb_disarm="rostopic pub -1 /minibunker/arm std_msgs/Bool \"data: false\""' >> $HOME/.bashrc
+    echo 'alias mb_disarm="rostopic pub -1 /minibunker/arm std_msgs/Bool \"data: false\""' >> $HOME/.bashrc && \
+    echo '# --- Visualisation (needs X: VcXsrv on Windows, DISPLAY is set by start_sim.sh) ---' >> $HOME/.bashrc && \
+    echo 'alias mb_rviz="rosrun rviz rviz"' >> $HOME/.bashrc
 
 # GUI / GPU env (sim on the dev laptop — same llvmpipe story as ros_z1_teleop;
 # harmless on the headless Pi).
