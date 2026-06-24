@@ -14,7 +14,13 @@ set -euo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 VENV="$HERE/.venv-ui"
 
-PY="$(command -v python3 || command -v python)"
+# Prefer a real interpreter. On Windows `python3` is usually the Microsoft Store
+# stub; the real one is `py`/`python`. On Linux/Mac (incl. the Pi) `py` is absent,
+# so this falls through to python3/python. (`set -u` => initialise PY first.)
+PY=""
+for cand in py python3 python; do
+    command -v "$cand" >/dev/null 2>&1 && { PY="$cand"; break; }
+done
 [ -n "$PY" ] || { echo "python not found on PATH"; exit 1; }
 
 if [ ! -d "$VENV" ]; then
