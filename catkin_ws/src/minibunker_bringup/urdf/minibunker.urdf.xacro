@@ -1,0 +1,61 @@
+<?xml version="1.0"?>
+<!-- ==========================================================================
+     minibunker.urdf.xacro — the sim robot.
+
+     We do NOT edit the vendored submodule. Instead we xacro:include the AgileX
+     Bunker gazebo description (which already carries the skid-steer/planar-move
+     drive plugin: /cmd_vel in, /odom out) and add ONLY the camera seam: a
+     forward-facing camera link + libgazebo_ros_camera plugin that publishes
+     /camera/image_raw + /camera/camera_info — the exact topics pi_camera_node
+     publishes on the real robot (plan.md §3.1, §8.4, §8.5).
+     ========================================================================== -->
+<robot name="minibunker" xmlns:xacro="http://www.ros.org/wiki/xacro">
+
+  <!-- AgileX Bunker description + drive plugin (vendored, unmodified) -->
+  <xacro:include filename="$(find bunker_gazebo_sim)/urdf/bunker.xacro"/>
+
+  <!-- camera seam (the only thing we add) -->
+  <link name="camera_link">
+    <visual>
+      <geometry><box size="0.03 0.06 0.03"/></geometry>
+      <material name="cam_black"><color rgba="0.1 0.1 0.1 1"/></material>
+    </visual>
+  </link>
+
+  <joint name="camera_joint" type="fixed">
+    <parent link="base_link"/>
+    <child link="camera_link"/>
+    <!-- mounted forward + up on the chassis, looking along +X -->
+    <origin xyz="0.40 0.0 0.20" rpy="0 0 0"/>
+  </joint>
+
+  <gazebo reference="camera_link">
+    <sensor type="camera" name="minibunker_camera">
+      <update_rate>30.0</update_rate>
+      <camera name="head">
+        <horizontal_fov>1.3962634</horizontal_fov>   <!-- ~80 deg -->
+        <image>
+          <width>640</width>
+          <height>480</height>
+          <format>R8G8B8</format>
+        </image>
+        <clip><near>0.05</near><far>30.0</far></clip>
+      </camera>
+      <plugin name="camera_controller" filename="libgazebo_ros_camera.so">
+        <alwaysOn>true</alwaysOn>
+        <updateRate>0.0</updateRate>
+        <cameraName>camera</cameraName>          <!-- => /camera/... -->
+        <imageTopicName>image_raw</imageTopicName>
+        <cameraInfoTopicName>camera_info</cameraInfoTopicName>
+        <frameName>camera_link</frameName>
+        <hackBaseline>0.0</hackBaseline>
+        <distortionK1>0.0</distortionK1>
+        <distortionK2>0.0</distortionK2>
+        <distortionK3>0.0</distortionK3>
+        <distortionT1>0.0</distortionT1>
+        <distortionT2>0.0</distortionT2>
+      </plugin>
+    </sensor>
+  </gazebo>
+
+</robot>

@@ -14,11 +14,15 @@ logs/
 *.bag
 
 # --- CNN model weights & training artifacts (release/fetch, don't commit) ---
-models/*.pt
-models/*.onnx
-models/*.ncnn*
-models/*.hef
-models/*.engine
+# Path-agnostic: covers both repo-root models/ and the in-package
+# catkin_ws/src/minibunker_perception/models/ drop-in dir. README.md is kept.
+**/models/*.pt
+**/models/*.onnx
+**/models/*.ncnn*
+**/models/*_ncnn_model/
+**/models/*.hef
+**/models/*.engine
+.venv-ui/
 training/runs/
 training/datasets/
 data/

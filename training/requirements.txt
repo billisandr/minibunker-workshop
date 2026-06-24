@@ -1,0 +1,6 @@
+# Off-robot training deps (Colab or any CUDA box). NOT installed in the robot
+# image — the Pi runs inference via onnxruntime/ncnn only.
+ultralytics>=8.1.0
+roboflow>=1.1.0
+onnx>=1.14
+onnxruntime>=1.16

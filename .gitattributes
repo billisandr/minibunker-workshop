@@ -1,0 +1,17 @@
+# Everything in this repo is built/run inside Linux containers and on the Pi, so
+# force LF on checkout for ALL text files regardless of platform or core.autocrlf.
+# Without this, a Windows checkout gives bash scripts and python shebangs CRLF
+# endings that fail inside the container ("/usr/bin/env bash^M": No such file).
+* text=auto eol=lf
+
+# Binary assets — never touch line endings (prevents STL/jpg/model corruption).
+*.STL   binary
+*.stl   binary
+*.dae   binary
+*.png   binary
+*.jpg   binary
+*.jpeg  binary
+*.mp4   binary
+*.pt    binary
+*.onnx  binary
+*.bag   binary

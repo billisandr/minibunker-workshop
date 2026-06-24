@@ -576,14 +576,22 @@ submodules/scaffolding (6–7) happen when implementation starts.
    gh repo create billisandr/minibunker-spacemine-workshop \
      --private --source . --remote origin --push
    ```
-6. **(Later)** add the three submodules, pinned to known-good upstream SHAs (read the
-   exact commits at integration time; record them here like `ros_z1_teleop` §12b):
+6. **(DONE 2026-06-24)** added the three submodules under `catkin_ws/src/`, pinned to
+   these upstream SHAs (recorded like `ros_z1_teleop` §12b):
    ```
-   git submodule add https://github.com/agilexrobotics/ugv_gazebo_sim catkin_ws/src/ugv_gazebo_sim
-   git submodule add https://github.com/agilexrobotics/bunker_ros     catkin_ws/src/bunker_ros
-   git submodule add https://github.com/agilexrobotics/ugv_sdk        catkin_ws/src/ugv_sdk
+   ugv_gazebo_sim  27633a956c845903ee630538afeb17fe70afdd84   (default branch)
+   bunker_ros      6ae0a1da92a0cdfb5f679e1cf2c0ad63e75a36d1   (master)
+   ugv_sdk         c3dfaf444f9bae10757e546acae055aaf4a13de7   (main)
    ```
-7. **(Later)** scaffold the four `minibunker_*` packages + Docker + configs.
+   Notable finds: `ugv_gazebo_sim` ships **both** a `bunker_gazebo_sim` (with a
+   `libgazebo_ros_planar_move` drive plugin: `/cmd_vel`→motion, `/odom`) **and** a
+   `bunker_mini/` URDF (partly answers §15 Q2 — a Mini description exists).
+   `bunker_bringup/launch/bunker_robot_base.launch` has an `is_bunker_mini` arg, used
+   by `minibunker_real.launch`.
+7. **(DONE 2026-06-24)** scaffolded the four `minibunker_*` packages + Docker + configs;
+   implemented Phases 1–6 (perception/behaviour/bringup/ui code, sim world + camera
+   xacro, master YAML, Streamlit UI, training scripts). Pending: image build + hardware
+   validation, and Phase 7 styled handout/instructor cards.
 
 GitHub owner/visibility = **`billisandr`, PRIVATE** (matches the other stations).
 

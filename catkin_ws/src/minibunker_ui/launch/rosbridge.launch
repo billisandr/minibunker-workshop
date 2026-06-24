@@ -1,0 +1,10 @@
+<?xml version="1.0"?>
+<!-- Standalone rosbridge websocket, in case you want to run the UI bridge
+     separately from the station launches (which already include rosbridge).
+     The Streamlit app connects to ws://HOST:9090. -->
+<launch>
+  <arg name="port" default="9090"/>
+  <include file="$(find rosbridge_server)/launch/rosbridge_websocket.launch">
+    <arg name="port" value="$(arg port)"/>
+  </include>
+</launch>

@@ -1,0 +1,9 @@
+[submodule "catkin_ws/src/ugv_sdk"]
+	path = catkin_ws/src/ugv_sdk
+	url = https://github.com/agilexrobotics/ugv_sdk
+[submodule "catkin_ws/src/bunker_ros"]
+	path = catkin_ws/src/bunker_ros
+	url = https://github.com/agilexrobotics/bunker_ros
+[submodule "catkin_ws/src/ugv_gazebo_sim"]
+	path = catkin_ws/src/ugv_gazebo_sim
+	url = https://github.com/agilexrobotics/ugv_gazebo_sim

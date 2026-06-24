@@ -1,0 +1,19 @@
+<?xml version="1.0"?>
+<package format="2">
+  <name>minibunker_behavior</name>
+  <version>0.1.0</version>
+  <description>
+    Reactive space-mining behaviour for the MiniBunker rover: a
+    SEARCH -> APPROACH -> AVOID -> STOP state machine that consumes detections
+    and publishes geometry_msgs/Twist on /cmd_vel. Boots DISARMED.
+  </description>
+  <maintainer email="vandroulakis100@gmail.com">billisandr</maintainer>
+  <license>MIT</license>
+
+  <buildtool_depend>catkin</buildtool_depend>
+
+  <exec_depend>rospy</exec_depend>
+  <exec_depend>std_msgs</exec_depend>
+  <exec_depend>geometry_msgs</exec_depend>
+  <exec_depend>vision_msgs</exec_depend>
+</package>

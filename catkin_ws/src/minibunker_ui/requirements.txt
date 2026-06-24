@@ -1,0 +1,8 @@
+# Host-side Streamlit UI deps (run in an ordinary venv, NOT in the ROS container).
+# The UI talks to the ROS graph only over rosbridge/roslibpy, so it does not need
+# rospy or any ROS Python packages.
+streamlit>=1.28
+roslibpy>=1.5
+numpy>=1.23
+opencv-python-headless>=4.6
+pillow>=9.0

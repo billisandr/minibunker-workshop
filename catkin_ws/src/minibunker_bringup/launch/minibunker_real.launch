@@ -1,0 +1,42 @@
+<?xml version="1.0"?>
+<!-- ==========================================================================
+     minibunker_real.launch — the REAL half of the station (plan.md §4.5, §8.4).
+
+     bunker_base (CAN -> motors, /cmd_vel in, /odom out) + pi_camera_node
+     (/camera/image_raw) + the SAME detector + behaviour + rosbridge. No Gazebo,
+     no sim time.
+
+     SAFETY: behaviour boots DISARMED. ARM only with the e-stop in hand, inside
+     the fenced arena. See docs/HARDWARE_SETUP.md.
+
+       roslaunch minibunker_bringup minibunker_real.launch backend:=cnn
+     ========================================================================== -->
+<launch>
+  <arg name="backend"   default="cnn"/>     <!-- cnn | hsv -->
+  <arg name="rosbridge" default="true"/>
+  <arg name="port_name" default="can0"/>
+
+  <!-- 1. Master config, then launch-arg overrides -->
+  <include file="$(find minibunker_bringup)/launch/params.launch"/>
+  <param name="detector/backend" value="$(arg backend)"/>
+  <param name="use_sim_time"     value="false"/>
+
+  <!-- 2. Real Bunker Mini base over CAN -->
+  <include file="$(find bunker_bringup)/launch/bunker_robot_base.launch">
+    <arg name="port_name"      value="$(arg port_name)"/>
+    <arg name="is_bunker_mini" value="true"/>
+    <arg name="odom_topic_name" value="odom"/>
+  </include>
+
+  <!-- 3. Pi camera -> /camera/image_raw -->
+  <node name="pi_camera" pkg="minibunker_perception" type="pi_camera_node.py" output="screen"/>
+
+  <!-- 4. Perception + behaviour (identical to the sim launch) -->
+  <node name="detector" pkg="minibunker_perception" type="detector_node.py" output="screen"/>
+  <node name="behavior" pkg="minibunker_behavior"   type="behavior_node.py" output="screen"/>
+
+  <!-- 5. rosbridge for the Streamlit UI -->
+  <group if="$(arg rosbridge)">
+    <include file="$(find rosbridge_server)/launch/rosbridge_websocket.launch"/>
+  </group>
+</launch>

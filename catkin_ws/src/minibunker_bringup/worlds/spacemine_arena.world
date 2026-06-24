@@ -1,0 +1,85 @@
+<?xml version="1.0"?>
+<!-- ==========================================================================
+     spacemine_arena.world — self-contained Gazebo Classic world (plan.md §8.5).
+
+     Deliberately uses only SDF primitives (no model://construction_cone fetch
+     from the OSRF model DB) so it runs offline. The "cones" are orange cylinders
+     standing in for real construction cones — the sim is for testing the
+     behaviour/HSV path; the CNN is trained on real cone photos (docs/TRAINING.md).
+     The green "ore" ball is a bright-green sphere. All props are static so they
+     stay put under the kinematic planar-move drive.
+     ========================================================================== -->
+<sdf version="1.6">
+  <world name="spacemine_arena">
+
+    <include><uri>model://sun</uri></include>
+
+    <!-- dark mining-floor ground -->
+    <model name="arena_floor">
+      <static>true</static>
+      <link name="link">
+        <collision name="c"><geometry><plane><normal>0 0 1</normal><size>12 12</size></plane></geometry></collision>
+        <visual name="v">
+          <geometry><plane><normal>0 0 1</normal><size>12 12</size></plane></geometry>
+          <material><ambient>0.15 0.15 0.17 1</ambient><diffuse>0.2 0.2 0.22 1</diffuse></material>
+        </visual>
+      </link>
+    </model>
+
+    <!-- fenced boundary: four low walls around a ~6x6 arena -->
+    <model name="fence">
+      <static>true</static>
+      <link name="link">
+        <collision name="n"><pose>0 3 0.25 0 0 0</pose><geometry><box><size>6 0.1 0.5</size></box></geometry></collision>
+        <visual name="nv"><pose>0 3 0.25 0 0 0</pose><geometry><box><size>6 0.1 0.5</size></box></geometry><material><ambient>0.5 0.4 0.1 1</ambient><diffuse>0.6 0.45 0.12 1</diffuse></material></visual>
+        <collision name="s"><pose>0 -3 0.25 0 0 0</pose><geometry><box><size>6 0.1 0.5</size></box></geometry></collision>
+        <visual name="sv"><pose>0 -3 0.25 0 0 0</pose><geometry><box><size>6 0.1 0.5</size></box></geometry><material><ambient>0.5 0.4 0.1 1</ambient><diffuse>0.6 0.45 0.12 1</diffuse></material></visual>
+        <collision name="e"><pose>3 0 0.25 0 0 0</pose><geometry><box><size>0.1 6 0.5</size></box></geometry></collision>
+        <visual name="ev"><pose>3 0 0.25 0 0 0</pose><geometry><box><size>0.1 6 0.5</size></box></geometry><material><ambient>0.5 0.4 0.1 1</ambient><diffuse>0.6 0.45 0.12 1</diffuse></material></visual>
+        <collision name="w"><pose>-3 0 0.25 0 0 0</pose><geometry><box><size>0.1 6 0.5</size></box></geometry></collision>
+        <visual name="wv"><pose>-3 0 0.25 0 0 0</pose><geometry><box><size>0.1 6 0.5</size></box></geometry><material><ambient>0.5 0.4 0.1 1</ambient><diffuse>0.6 0.45 0.12 1</diffuse></material></visual>
+      </link>
+    </model>
+
+    <!-- green "ore" ball -->
+    <model name="ore_ball">
+      <static>true</static>
+      <pose>2.6 0.4 0.15 0 0 0</pose>
+      <link name="link">
+        <collision name="c"><geometry><sphere><radius>0.15</radius></sphere></geometry></collision>
+        <visual name="v">
+          <geometry><sphere><radius>0.15</radius></sphere></geometry>
+          <material><ambient>0.05 0.6 0.05 1</ambient><diffuse>0.1 0.9 0.1 1</diffuse><emissive>0.0 0.2 0.0 1</emissive></material>
+        </visual>
+      </link>
+    </model>
+
+    <!-- orange "cone" obstacles (cylinders stand in for cones) -->
+    <model name="cone_1">
+      <static>true</static>
+      <pose>1.4 -0.9 0.2 0 0 0</pose>
+      <link name="link">
+        <collision name="c"><geometry><cylinder><radius>0.12</radius><length>0.4</length></cylinder></geometry></collision>
+        <visual name="v"><geometry><cylinder><radius>0.12</radius><length>0.4</length></cylinder></geometry><material><ambient>0.7 0.3 0.0 1</ambient><diffuse>1.0 0.45 0.05 1</diffuse></material></visual>
+      </link>
+    </model>
+    <model name="cone_2">
+      <static>true</static>
+      <pose>2.0 1.1 0.2 0 0 0</pose>
+      <link name="link">
+        <collision name="c"><geometry><cylinder><radius>0.12</radius><length>0.4</length></cylinder></geometry></collision>
+        <visual name="v"><geometry><cylinder><radius>0.12</radius><length>0.4</length></cylinder></geometry><material><ambient>0.7 0.3 0.0 1</ambient><diffuse>1.0 0.45 0.05 1</diffuse></material></visual>
+      </link>
+    </model>
+    <model name="cone_3">
+      <static>true</static>
+      <pose>3.2 -1.4 0.2 0 0 0</pose>
+      <link name="link">
+        <collision name="c"><geometry><cylinder><radius>0.12</radius><length>0.4</length></cylinder></geometry></collision>
+        <visual name="v"><geometry><cylinder><radius>0.12</radius><length>0.4</length></cylinder></geometry><material><ambient>0.7 0.3 0.0 1</ambient><diffuse>1.0 0.45 0.05 1</diffuse></material></visual>
+      </link>
+    </model>
+
+    <physics type="ode"><max_step_size>0.004</max_step_size><real_time_factor>1.0</real_time_factor></physics>
+  </world>
+</sdf>

@@ -1,0 +1,27 @@
+<?xml version="1.0"?>
+<package format="2">
+  <name>minibunker_bringup</name>
+  <version>0.1.0</version>
+  <description>
+    Launch files, Gazebo world + spacemine arena assets, RViz config and the
+    master-YAML loader that wire the MiniBunker SpaceMine station together for
+    both sim and real. The single platform switch lives here.
+  </description>
+  <maintainer email="vandroulakis100@gmail.com">billisandr</maintainer>
+  <license>MIT</license>
+
+  <buildtool_depend>catkin</buildtool_depend>
+
+  <exec_depend>rospy</exec_depend>
+  <exec_depend>xacro</exec_depend>
+  <exec_depend>gazebo_ros</exec_depend>
+  <exec_depend>robot_state_publisher</exec_depend>
+  <exec_depend>minibunker_perception</exec_depend>
+  <exec_depend>minibunker_behavior</exec_depend>
+  <exec_depend>rosbridge_server</exec_depend>
+  <!-- real-robot driver (built from the vendored bunker_ros submodule) -->
+  <exec_depend>bunker_base</exec_depend>
+  <exec_depend>bunker_bringup</exec_depend>
+  <!-- sim description (built from the vendored ugv_gazebo_sim submodule) -->
+  <exec_depend>bunker_gazebo_sim</exec_depend>
+</package>

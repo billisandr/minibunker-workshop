@@ -1,0 +1,67 @@
+# ============================================================================
+#  minibunker.yaml — the ONE master config for the MiniBunker SpaceMine station.
+#
+#  This is the only file a workshop host edits. Launch files load it into the
+#  ROS parameter server (`<rosparam command="load"/>`), so every nested key
+#  below becomes a slash-param the nodes read, e.g.  detector/backend.
+#  The Streamlit UI live-tunes a subset of these over rosbridge.
+#
+#  See plan.md §5 for the full schema rationale.
+# ============================================================================
+
+platform: sim                 # sim | real  (selects the launch; informational here)
+
+camera:
+  source: gazebo              # gazebo | picamera | webcam | video:/abs/path.mp4 | synthetic
+  v4l2_device: /dev/video0    # used when source falls back to V4L2 on the Pi
+  width: 640
+  height: 480
+  fps: 30
+  flip_horizontal: false
+
+detector:
+  backend: hsv                # hsv | cnn  (HSV works with zero training; CNN needs a model)
+  cnn:
+    weights: /home/rosuser/catkin_ws/src/minibunker_perception/models/minibunker_yolov8n.onnx
+    runtime: onnxruntime      # onnxruntime | ultralytics | ncnn
+    conf_threshold: 0.45
+    iou_threshold: 0.50
+    class_names: [green_ball, cone]
+    input_size: 416
+  hsv:                        # the v0 baseline, generalised to two colours
+    green_ball:
+      lower: [40, 70, 40]     # HSV lower bound (OpenCV H is 0-179)
+      upper: [85, 255, 255]
+      min_area: 800
+    cone:
+      lower: [5, 120, 90]     # orange
+      upper: [25, 255, 255]
+      min_area: 1200
+
+behavior:
+  arm_on_start: false         # SAFETY: boot DISARMED (zero Twist until ARMed)
+  rate_hz: 15.0
+  search:
+    scan_angular_speed: 0.5   # rad/s, rotate while searching
+  approach:
+    steer_gain: 0.8           # P-gain on NORMALISED image-x error (-1..1)
+    forward_speed: 0.25       # m/s
+    collect_bbox_frac: 0.45   # ball bbox height / frame height that triggers COLLECT
+    collect_hold_ticks: 20    # ticks to pause at the "ore" before resuming SEARCH
+  avoid:
+    cone_danger_frac: 0.35    # cone bbox height fraction (low-centre) that triggers AVOID
+    backoff_speed: -0.15      # m/s (reverse)
+    turn_speed: 0.6           # rad/s away from the cone
+  limits:
+    max_linear: 0.4           # hard speed caps (m/s)
+    max_angular: 1.0          # rad/s
+    lost_frames: 15           # frames without a target before falling back to SEARCH
+
+drive:
+  cmd_vel_topic: /cmd_vel
+  track_width: 0.4            # for twist->tracks mixing on the v0/HSV coder path
+
+ui:
+  bridge: rosbridge          # rosbridge | sharedfile
+  rosbridge_port: 9090
+  refresh_hz: 10

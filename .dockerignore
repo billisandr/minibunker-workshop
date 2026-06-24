@@ -1,0 +1,45 @@
+# --- VCS / build artifacts ---
+.git
+**/.git
+**/build/
+**/devel/
+**/install/
+**/__pycache__/
+*.pyc
+
+# --- Models / datasets / media (fetched or released, never baked into the image) ---
+models/*.pt
+models/*.onnx
+models/*.ncnn*
+models/*.hef
+models/*.engine
+training/runs/
+training/datasets/
+data/
+media/*.mp4
+
+# --- ugv_gazebo_sim ships Gazebo descriptions for every AgileX chassis; this
+#     station only uses the Bunker / Bunker-Mini. Everything else is unused
+#     meshes/URDF that only bloats the build context. ---
+catkin_ws/src/ugv_gazebo_sim/scout/
+catkin_ws/src/ugv_gazebo_sim/hunter/
+catkin_ws/src/ugv_gazebo_sim/hunter_se/
+catkin_ws/src/ugv_gazebo_sim/tracer/
+catkin_ws/src/ugv_gazebo_sim/tracer_mini/
+catkin_ws/src/ugv_gazebo_sim/ranger/
+catkin_ws/src/ugv_gazebo_sim/ranger_air/
+catkin_ws/src/ugv_gazebo_sim/ranger_delta/
+catkin_ws/src/ugv_gazebo_sim/ranger_mini/
+catkin_ws/src/ugv_gazebo_sim/limo/
+catkin_ws/src/ugv_gazebo_sim/limo_s2/
+catkin_ws/src/ugv_gazebo_sim/autokit/
+
+# --- Secrets ---
+*.key
+.env
+roboflow_api_key*
+
+# --- OS / editor ---
+.DS_Store
+Thumbs.db
+*.swp

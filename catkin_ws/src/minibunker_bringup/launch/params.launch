@@ -1,0 +1,7 @@
+<?xml version="1.0"?>
+<!-- Loads the master config into the parameter server. Included by both the
+     sim and real launches so the two share one source of truth (plan.md §4.6). -->
+<launch>
+  <arg name="config" default="$(find minibunker_bringup)/config/minibunker.yaml"/>
+  <rosparam file="$(arg config)" command="load"/>
+</launch>

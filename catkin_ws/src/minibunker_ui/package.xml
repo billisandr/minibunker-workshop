@@ -1,0 +1,17 @@
+<?xml version="1.0"?>
+<package format="2">
+  <name>minibunker_ui</name>
+  <version>0.1.0</version>
+  <description>
+    Non-coder front door: a Streamlit dashboard + knob panel that talks to the
+    ROS graph over rosbridge (roslibpy). Includes the rosbridge launch and the
+    host-side run script. The Streamlit app itself is not a ROS node.
+  </description>
+  <maintainer email="vandroulakis100@gmail.com">billisandr</maintainer>
+  <license>MIT</license>
+
+  <buildtool_depend>catkin</buildtool_depend>
+
+  <exec_depend>rospy</exec_depend>
+  <exec_depend>rosbridge_server</exec_depend>
+</package>
