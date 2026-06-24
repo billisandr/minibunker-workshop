@@ -32,6 +32,10 @@
     <arg name="use_sim_time" value="true"/>
   </include>
 
+  <!-- 2b. Arena fence + cones: spawned sequentially, sized/gated by config
+            (arena/fence_enabled, arena/cone_scale) -->
+  <node name="arena_setup" pkg="minibunker_bringup" type="arena_setup.py" output="screen"/>
+
   <!-- 3. Robot: Bunker description + our camera seam -->
   <param name="robot_description"
          command="$(find xacro)/xacro --inorder '$(find minibunker_bringup)/urdf/minibunker.urdf.xacro'"/>

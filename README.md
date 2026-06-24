@@ -30,11 +30,15 @@ reactive *space-mining* behaviour. Runs identically in **Gazebo simulation** and
 
 ## Quick start
 
-```bash
+On Windows, run from **PowerShell** (the `.sh` scripts are invoked through Git's
+bundled bash by full path; from a Git Bash prompt drop the prefix and use
+`bash ./start_sim.sh`):
+
+```powershell
 git clone --recurse-submodules https://github.com/billisandr/minibunker-spacemine-workshop
 cd minibunker-spacemine-workshop
-bash start_sim.sh                                   # Gazebo sim (HSV baseline)
-bash catkin_ws/src/minibunker_ui/run_ui.sh          # http://localhost:8501
+& "C:\Program Files\Git\bin\bash.exe" ./start_sim.sh                              # Gazebo sim (HSV baseline)
+& "C:\Program Files\Git\bin\bash.exe" ./catkin_ws/src/minibunker_ui/run_ui.sh     # http://localhost:8501
 ```
 
 Full walkthrough (incl. a hardware-free synthetic loop) → **[docs/QUICKSTART.md](docs/QUICKSTART.md)**.

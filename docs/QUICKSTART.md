@@ -11,9 +11,16 @@ behaviour nodes; only the camera source and drive backend change (plan.md §3).
 
 ## 0. Prerequisites
 
-- Docker Desktop (Windows/macOS/Linux). On Windows run the scripts from **Git Bash**.
+- Docker Desktop (Windows/macOS/Linux).
 - For the sim GUI on Windows: **VcXsrv** (the `start_sim.sh` script starts it with `-wgl`).
 - For the UI: host Python 3.9+ (a venv is created automatically by `run_ui.sh`).
+
+> **Running the `.sh` scripts on Windows.** The commands below are shown in the
+> **PowerShell** form that calls Git's bundled bash explicitly:
+> `& "C:\Program Files\Git\bin\bash.exe" ./start_sim.sh`. If your bash lives
+> elsewhere, adjust the path. From a **Git Bash** prompt you can instead drop the
+> prefix and just run `bash ./start_sim.sh`. The **real-robot** commands run on
+> the **Pi (Linux)**, where it is always plain `bash ./start_real.sh`.
 
 Clone with submodules (the three AgileX repos are vendored):
 
@@ -27,10 +34,10 @@ git submodule update --init --recursive
 
 ## 1. Gazebo simulation (no robot, no camera)
 
-```bash
-bash start_sim.sh                 # builds the image first time, then launches
+```powershell
+& "C:\Program Files\Git\bin\bash.exe" ./start_sim.sh                 # builds the image first time, then launches
 # HSV baseline is the default; for the CNN backend (needs a model, see TRAINING):
-bash start_sim.sh "mb_sim backend:=cnn"
+& "C:\Program Files\Git\bin\bash.exe" ./start_sim.sh "mb_sim backend:=cnn"
 ```
 
 You should see Gazebo with the Bunker in the spacemine arena (green ore ball +
@@ -70,8 +77,8 @@ Set `camera/source: video:/abs/path/to/demo.mp4` to loop a real clip instead.
 
 With a station running (sim or real — both start rosbridge on `:9090`):
 
-```bash
-bash catkin_ws/src/minibunker_ui/run_ui.sh      # -> http://localhost:8501
+```powershell
+& "C:\Program Files\Git\bin\bash.exe" ./catkin_ws/src/minibunker_ui/run_ui.sh      # -> http://localhost:8501
 ```
 
 The panel shows the live annotated camera + telemetry and lets you:
@@ -90,10 +97,10 @@ The single source of truth for defaults is
 ## 4. Real robot
 
 See **[HARDWARE_SETUP.md](HARDWARE_SETUP.md)** for the Pi 5 + camera + CAN setup,
-then on the Pi:
+then on the Pi (Linux — plain `bash`, the Windows `bash.exe` path does not apply here):
 
 ```bash
-bash start_real.sh
+bash ./start_real.sh
 ```
 
 SAFETY: only ARM with the hardware e-stop in hand, inside the fenced arena.

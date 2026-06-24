@@ -20,7 +20,11 @@ export MSYS_NO_PATHCONV=1
 
 IMAGE="minibunker-spacemine"
 CONTAINER="minibunker-sim"
-VCXSRV="/c/Program Files/VcXsrv/vcxsrv.exe"
+# Windows-style (not "/c/...") on purpose: MSYS_NO_PATHCONV=1 above disables
+# Git Bash's automatic POSIX->Windows path translation, so a "/c/..." path
+# passed into the embedded PowerShell -Command string below would reach
+# Start-Process -FilePath literally and fail with "cannot find the file".
+VCXSRV='C:\Program Files\VcXsrv\vcxsrv.exe'
 LAUNCH="${1:-mb_sim}"
 REBUILD=0
 [ "${1:-}" = "--rebuild" ] && { REBUILD=1; LAUNCH="mb_sim"; }

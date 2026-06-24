@@ -84,9 +84,12 @@ clip) or `synthetic` — the stack runs with no camera at all.
 
 ## 4. Launch + safety
 
+These run **on the Pi (Linux)**, so it is plain `bash` — the Windows
+`& "C:\Program Files\Git\bin\bash.exe" …` form used for the sim does not apply here.
+
 ```bash
-bash start_real.sh
-# panel:  bash catkin_ws/src/minibunker_ui/run_ui.sh
+bash ./start_real.sh
+# panel:  bash ./catkin_ws/src/minibunker_ui/run_ui.sh
 # ARM:    docker exec -it minibunker-real bash -ic mb_arm
 ```
 

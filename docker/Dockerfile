@@ -31,10 +31,15 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     can-utils iproute2 \
     # ROS: gazebo + control (sim); harmless to install on arm if present
     ros-noetic-gazebo-ros-pkgs ros-noetic-gazebo-ros-control \
+    ros-noetic-gazebo-dev ros-noetic-gazebo-msgs ros-noetic-gazebo-plugins \
     ros-noetic-robot-state-publisher ros-noetic-joint-state-publisher \
     ros-noetic-controller-manager ros-noetic-joint-state-controller \
     ros-noetic-position-controllers ros-noetic-effort-controllers \
     ros-noetic-xacro \
+    # roslint: build-time catkin component required by the vendored
+    # bunker_gazebo_sim package; NOT pulled in by desktop-full, so without this
+    # `find_package(catkin REQUIRED COMPONENTS roslint)` fails the build.
+    ros-noetic-roslint \
     # ROS: perception + bridge
     ros-noetic-cv-bridge ros-noetic-image-transport \
     ros-noetic-vision-msgs \
@@ -91,8 +96,31 @@ COPY --chown=$USERNAME:$USERNAME catkin_ws/src /home/$USERNAME/catkin_ws/src
 # z1_controller CMakeLists in ros_z1_teleop). Harmless if already LF.
 RUN find /home/$USERNAME/catkin_ws/src -name 'CMakeLists.txt' -exec sed -i 's/\r$//' {} +
 
+# The catkin_ws dir itself was created by `mkdir` as root; catkin_make (run as
+# $USERNAME below) needs to create build/ and devel/ inside it, so hand the
+# whole tree to the user before switching. Without this: catkin_make fails with
+# "[Errno 13] Permission denied: '/home/rosuser/catkin_ws/build'".
+RUN chown -R $USERNAME:$USERNAME /home/$USERNAME/catkin_ws
+
 USER $USERNAME
 ENV HOME=/home/$USERNAME
+
+# ---------------------------------------------------------------------------
+# Vendor the "construction_cone" Gazebo model (mirrors models.gazebosim.org,
+# fetched from the OSRF GitHub mirror at build time) into ~/.gazebo/models so
+# the spacemine world's <include><uri>model://construction_cone</uri></include>
+# resolves with zero network access at sim runtime -- same "runs offline"
+# requirement as the rest of spacemine_arena.world.
+# ---------------------------------------------------------------------------
+RUN mkdir -p $HOME/.gazebo/models/construction_cone/meshes \
+             $HOME/.gazebo/models/construction_cone/materials/textures \
+ && BASE=https://raw.githubusercontent.com/osrf/gazebo_models/master/construction_cone \
+ && curl -sSL -o $HOME/.gazebo/models/construction_cone/model.config        "$BASE/model.config" \
+ && curl -sSL -o $HOME/.gazebo/models/construction_cone/model.sdf          "$BASE/model.sdf" \
+ && curl -sSL -o $HOME/.gazebo/models/construction_cone/meshes/construction_cone.dae \
+        "$BASE/meshes/construction_cone.dae" \
+ && curl -sSL -o $HOME/.gazebo/models/construction_cone/materials/textures/Construction_Cone_Diffuse.png \
+        "$BASE/materials/textures/Construction_Cone_Diffuse.png"
 
 # ---------------------------------------------------------------------------
 # Build the workspace

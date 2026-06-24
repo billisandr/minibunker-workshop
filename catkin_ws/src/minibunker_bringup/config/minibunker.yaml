@@ -11,6 +11,10 @@
 
 platform: sim                 # sim | real  (selects the launch; informational here)
 
+arena:
+  fence_enabled: false        # sim only: spawn the 4-wall arena boundary in Gazebo
+  cone_scale: 0.3             # sim only: uniform scale on the construction_cone mesh
+
 camera:
   source: gazebo              # gazebo | picamera | webcam | video:/abs/path.mp4 | synthetic
   v4l2_device: /dev/video0    # used when source falls back to V4L2 on the Pi
