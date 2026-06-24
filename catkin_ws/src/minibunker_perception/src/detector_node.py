@@ -71,7 +71,20 @@ class HsvDetector:
         lower = np.array(sub["lower"], dtype=np.uint8)
         upper = np.array(sub["upper"], dtype=np.uint8)
         mask = cv2.inRange(hsv, lower, upper)
-        mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, np.ones((5, 5), np.uint8))
+        # CLOSE before OPEN. A construction cone is orange with white reflective
+        # bands, so its mask comes back as several disconnected stripes; with
+        # RETR_EXTERNAL each stripe is a separate contour and each falls under
+        # min_area, so nothing is detected even though the mask clearly lights
+        # up. Closing with a kernel taller than the white gaps merges the
+        # stripes into one cone blob; opening then drops small speckle noise.
+        close_k = int(sub.get("close_ksize", 5))
+        open_k = int(sub.get("open_ksize", 5))
+        if close_k > 1:
+            mask = cv2.morphologyEx(
+                mask, cv2.MORPH_CLOSE, np.ones((close_k, close_k), np.uint8))
+        if open_k > 1:
+            mask = cv2.morphologyEx(
+                mask, cv2.MORPH_OPEN, np.ones((open_k, open_k), np.uint8))
         contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
         boxes = []
         for c in contours:

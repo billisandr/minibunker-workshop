@@ -69,6 +69,16 @@ def connect(host, port):
         _sub("/minibunker/perception_state", "std_msgs/Float32MultiArray",
              "perception", 200),
     ]
+    # Persistent, advertised publisher for WASD teleop. Like the subscriptions
+    # above, this Topic MUST be kept alive on the cached client: a Topic created
+    # per-publish (and then GC'd) churns its rosbridge advertise so behaviour's
+    # subscriber never stays connected, and the continuous teleop stream is
+    # silently dropped — which looks like "WASD does nothing in Gazebo".
+    teleop_pub = roslibpy.Topic(
+        client, "/minibunker/teleop_cmd", "geometry_msgs/Twist")
+    teleop_pub.advertise()
+    client._teleop_pub = teleop_pub
+
     client._latest = latest
     client._lock = lock
     return client
@@ -133,11 +143,14 @@ def publish_arm(client, armed):
 
 
 def publish_teleop(client, lin, ang):
-    """Publish WASD *intent* on /minibunker/teleop_cmd. behavior_node honours it
-    only in TELEOP (mission/follow_item == none) and always through the ARM gate
-    + clamps, so this can never bypass DISARM."""
-    t = roslibpy.Topic(client, "/minibunker/teleop_cmd", "geometry_msgs/Twist")
-    t.publish(roslibpy.Message({
+    """Publish WASD *intent* on /minibunker/teleop_cmd via the persistent
+    publisher set up in connect(). behavior_node honours it only in TELEOP
+    (mission/follow_item == none) and always through the ARM gate + clamps, so
+    this can never bypass DISARM."""
+    pub = getattr(client, "_teleop_pub", None)
+    if pub is None:
+        return
+    pub.publish(roslibpy.Message({
         "linear": {"x": float(lin), "y": 0.0, "z": 0.0},
         "angular": {"x": 0.0, "y": 0.0, "z": float(ang)},
     }))

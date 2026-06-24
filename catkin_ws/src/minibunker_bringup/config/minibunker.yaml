@@ -46,10 +46,15 @@ detector:
       lower: [40, 70, 40]     # HSV lower bound (OpenCV H is 0-179)
       upper: [85, 255, 255]
       min_area: 800
+      close_ksize: 5          # solid blob -> only a mild close to fill holes
+      open_ksize: 5           # drop small speckle noise
     cone:
       lower: [5, 120, 90]     # orange
       upper: [25, 255, 255]
       min_area: 1200
+      close_ksize: 25         # bridge the white reflective bands between the
+                              # cone's orange stripes into one blob (see detector)
+      open_ksize: 3
 
 behavior:
   arm_on_start: false         # SAFETY: boot DISARMED (zero Twist until ARMed)
