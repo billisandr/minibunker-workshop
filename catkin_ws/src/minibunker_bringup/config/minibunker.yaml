@@ -1,5 +1,5 @@
 # ============================================================================
-#  minibunker.yaml — the ONE master config for the MiniBunker SpaceMine station.
+#  minibunker.yaml — the ONE master config for the MiniBunker station.
 #
 #  This is the only file a workshop host edits. Launch files load it into the
 #  ROS parameter server (`<rosparam command="load"/>`), so every nested key

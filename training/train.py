@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-train.py — train YOLOv8-nano on the 2-class spacemine dataset (plan.md §10 step 2).
+train.py — train YOLOv8-nano on the 2-class minibunker dataset (plan.md §10 step 2).
 
 Targets a model small enough to run >=10 FPS on the Pi 5 CPU. Start from the
 pretrained yolov8n.pt, ~416 input, light augmentation.
@@ -34,13 +34,13 @@ def main():
         imgsz=args.imgsz,
         batch=args.batch,
         project=args.project,
-        name="spacemine_yolov8n",
+        name="minibunker_yolov8n",
         # light aug — the arena is fairly controlled; avoid over-distorting colour
         hsv_h=0.015, hsv_s=0.5, hsv_v=0.4,
         fliplr=0.5, mosaic=1.0,
         patience=30,
     )
-    print("Done. Best weights under:", args.project, "/spacemine_yolov8n*/weights/best.pt")
+    print("Done. Best weights under:", args.project, "/minibunker_yolov8n*/weights/best.pt")
     print("Next: python export.py --weights <best.pt>")
 
 

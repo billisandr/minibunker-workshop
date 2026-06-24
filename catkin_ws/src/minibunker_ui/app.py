@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-MiniBunker SpaceMine — Streamlit control panel (plan.md §6).
+MiniBunker — Streamlit control panel (plan.md §6).
 
 A non-coder front door at http://localhost:8501. Talks to the ROS graph over
 rosbridge (ws://HOST:9090) using roslibpy, so it runs in an ordinary host
@@ -124,8 +124,8 @@ def publish_arm(client, armed):
 
 
 # --------------------------------------------------------------------------- UI
-st.set_page_config(page_title="MiniBunker SpaceMine", layout="wide")
-st.title("🛰️ MiniBunker SpaceMine — Control Panel")
+st.set_page_config(page_title="MiniBunker", layout="wide")
+st.title("🛰️ MiniBunker — Control Panel")
 
 with st.sidebar:
     st.subheader("Connection")

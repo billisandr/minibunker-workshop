@@ -3,8 +3,8 @@
   <name>minibunker_bringup</name>
   <version>0.1.0</version>
   <description>
-    Launch files, Gazebo world + spacemine arena assets, RViz config and the
-    master-YAML loader that wire the MiniBunker SpaceMine station together for
+    Launch files, Gazebo world + minibunker arena assets, RViz config and the
+    master-YAML loader that wire the MiniBunker station together for
     both sim and real. The single platform switch lives here.
   </description>
   <maintainer email="vandroulakis100@gmail.com">billisandr</maintainer>

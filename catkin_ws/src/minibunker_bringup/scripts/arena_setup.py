@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""One-shot node: spawns the spacemine arena's fence + cones in Gazebo, driven
+"""One-shot node: spawns the minibunker arena's fence + cones in Gazebo, driven
 by config (arena/fence_enabled, arena/cone_scale, see minibunker.yaml). Models
 are spawned one at a time via /gazebo/spawn_sdf_model rather than baked into
 the static .world file, for two reasons: (1) it keeps fence presence and cone

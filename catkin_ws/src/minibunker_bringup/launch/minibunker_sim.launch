@@ -2,7 +2,7 @@
 <!-- ==========================================================================
      minibunker_sim.launch — the SIM half of the station (plan.md §4.5, §8.4).
 
-     Gazebo spacemine arena + Bunker (with our added camera plugin) + detector
+     Gazebo minibunker arena + Bunker (with our added camera plugin) + detector
      + behaviour + rosbridge. The Gazebo camera plugin publishes /camera/image_raw
      and the Bunker's planar-move plugin consumes /cmd_vel and emits /odom — the
      exact same topic contract the real robot uses, so detector/behaviour are
@@ -16,7 +16,7 @@
   <arg name="gui"          default="true"/>
   <arg name="headless"     default="false"/>
   <arg name="rosbridge"    default="true"/>
-  <arg name="world"        default="$(find minibunker_bringup)/worlds/spacemine_arena.world"/>
+  <arg name="world"        default="$(find minibunker_bringup)/worlds/minibunker_arena.world"/>
 
   <!-- 1. Master config, then launch-arg overrides -->
   <include file="$(find minibunker_bringup)/launch/params.launch"/>

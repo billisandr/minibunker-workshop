@@ -19,7 +19,7 @@ Build the image for arm64 **on the Pi** (or via buildx):
 ```bash
 docker build -f docker/Dockerfile \
   --build-arg ROS_BASE_IMAGE=arm64v8/ros:noetic-ros-base \
-  -t minibunker-spacemine .
+  -t minibunker .
 ```
 
 Optional CNN runtimes (default image is lean = onnxruntime only):
@@ -28,7 +28,7 @@ Optional CNN runtimes (default image is lean = onnxruntime only):
 # fastest CPU on ARM — adds ncnn:
 docker build -f docker/Dockerfile \
   --build-arg ROS_BASE_IMAGE=arm64v8/ros:noetic-ros-base \
-  --build-arg INSTALL_NCNN=true -t minibunker-spacemine .
+  --build-arg INSTALL_NCNN=true -t minibunker .
 ```
 
 **Q3 (inference HW):** default is **CPU** (onnxruntime/ncnn). If a **Hailo-8L AI

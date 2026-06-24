@@ -28,7 +28,7 @@ load-bearing — it must match `detector_node` indices 0/1 and
 - **(b) Annotate real arena photos (recommended)** — shoot ~150–300 photos of the
   actual ball + cones under the real arena lighting/background, label in Roboflow,
   export **YOLOv8**. Best accuracy where it matters. Drop the export under
-  `training/datasets/spacemine/` matching `training/data.yaml`.
+  `training/datasets/minibunker/` matching `training/data.yaml`.
 
 If a source dataset uses different class names/order, remap labels so green_ball=0,
 cone=1 before training.
@@ -38,7 +38,7 @@ cone=1 before training.
 ## 2. Train
 
 ```bash
-python training/train.py --data training/datasets/spacemine/data.yaml --epochs 100
+python training/train.py --data training/datasets/minibunker/data.yaml --epochs 100
 # quick smoke run against the template:
 python training/train.py --data training/data.yaml --epochs 5
 ```
@@ -60,7 +60,7 @@ dataset/aug if they are.
 
 ```bash
 # portable default (onnxruntime):
-python training/export.py --weights training/runs/spacemine_yolov8n/weights/best.pt --format onnx
+python training/export.py --weights training/runs/minibunker_yolov8n/weights/best.pt --format onnx
 # fastest CPU on ARM:
 python training/export.py --weights ... --format ncnn
 ```

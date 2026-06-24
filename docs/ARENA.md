@@ -7,7 +7,7 @@ sim transfers (the sim is deliberately a stand-in — see the note on cones).
 
 ## Footprint
 
-- A fenced area ~**6 m × 6 m** (the sim `spacemine_arena.world` uses this; the
+- A fenced area ~**6 m × 6 m** (the sim `minibunker_arena.world` uses this; the
   visible fence model is off by default in sim — toggle with `arena/fence_enabled`
   in `config/minibunker.yaml`).
 - Flat floor, even-ish lighting (avoid hard shadows and direct sun on the ball —

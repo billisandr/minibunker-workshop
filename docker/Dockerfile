@@ -1,5 +1,5 @@
 # ============================================================================
-#  MiniBunker SpaceMine Workshop — ROS1 Noetic image (sim + real)
+#  MiniBunker Workshop — ROS1 Noetic image (sim + real)
 #
 #  One Dockerfile, two targets (plan.md §11):
 #    • SIM  (x86 dev laptop): default base osrf/ros:noetic-desktop-full ships
@@ -108,9 +108,9 @@ ENV HOME=/home/$USERNAME
 # ---------------------------------------------------------------------------
 # Vendor the "construction_cone" Gazebo model (mirrors models.gazebosim.org,
 # fetched from the OSRF GitHub mirror at build time) into ~/.gazebo/models so
-# the spacemine world's <include><uri>model://construction_cone</uri></include>
+# the minibunker world's <include><uri>model://construction_cone</uri></include>
 # resolves with zero network access at sim runtime -- same "runs offline"
-# requirement as the rest of spacemine_arena.world.
+# requirement as the rest of minibunker_arena.world.
 # ---------------------------------------------------------------------------
 RUN mkdir -p $HOME/.gazebo/models/construction_cone/meshes \
              $HOME/.gazebo/models/construction_cone/materials/textures \

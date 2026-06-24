@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # ============================================================================
-#  detector_node.py  —  the perception heart of the MiniBunker SpaceMine station
+#  detector_node.py  —  the perception heart of the MiniBunker station
 #
 #  Subscribes : /camera/image_raw            (sensor_msgs/Image)
 #  Publishes  : /minibunker/detections       (vision_msgs/Detection2DArray)

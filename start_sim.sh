@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ============================================================================
-#  start_sim.sh — build + launch the MiniBunker SpaceMine Gazebo simulation
+#  start_sim.sh — build + launch the MiniBunker Gazebo simulation
 #  on the x86 DEV LAPTOP (no robot hardware).
 #
 #  Run from Git Bash ON THE WINDOWS HOST. Mirrors the proven ros_z1_teleop
@@ -18,7 +18,7 @@ set -euo pipefail
 # tools see them — disable that for every docker/powershell call below.
 export MSYS_NO_PATHCONV=1
 
-IMAGE="minibunker-spacemine"
+IMAGE="minibunker"
 CONTAINER="minibunker-sim"
 # Windows-style (not "/c/...") on purpose: MSYS_NO_PATHCONV=1 above disables
 # Git Bash's automatic POSIX->Windows path translation, so a "/c/..." path

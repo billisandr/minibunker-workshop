@@ -1,4 +1,12 @@
-# MiniBunker SpaceMine Workshop — Implementation Plan
+# MiniBunker Workshop — Implementation Plan
+
+> **De-brand note (2026-06-24).** The project was renamed and fully de-branded: the
+> "SpaceMine" station name was dropped in favour of plain **"MiniBunker"**, the repo is now
+> **`minibunker-workshop`**, the Docker image is **`minibunker`**, and the Gazebo world is
+> **`minibunker_arena.world`**. References below to *"SpaceMine"*, `minibunker-spacemine-workshop`,
+> or `spacemine_arena.world` are **historical** (this is the frozen Phase-0 record — the
+> `gh repo create`/`spawn` commands were actually run under the old names). The current names
+> and the rationale live in [plan2.md](plan2.md) §2.
 
 > **Purpose of this document.** A self-contained build plan for a *new* workshop
 > station, `minibunker-spacemine-workshop`: an AgileX **Bunker Mini 2.0** tracked

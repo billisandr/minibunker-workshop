@@ -7,7 +7,7 @@ detector loads via onnxruntime. Export one or both, then drop the result into
 the perception package's models/ dir and point detector.cnn.weights at it.
 
 Usage:
-    python export.py --weights training/runs/spacemine_yolov8n/weights/best.pt --format onnx
+    python export.py --weights training/runs/minibunker_yolov8n/weights/best.pt --format onnx
     python export.py --weights ... --format ncnn
 
 The exported file is copied to:

@@ -1,11 +1,11 @@
-# YOLOv8 dataset template for the spacemine 2-class detector.
+# YOLOv8 dataset template for the minibunker 2-class detector.
 #
 # Class order is LOAD-BEARING: it MUST be [green_ball, cone] so the indices
 # match detector_node.py (0=green_ball, 1=cone) and config/minibunker.yaml
 # detector.cnn.class_names. download_dataset.py pulls a real dataset here;
 # this template just documents the expected shape (and lets you smoke-test
 # train.py against a tiny hand-made set).
-path: datasets/spacemine
+path: datasets/minibunker
 train: images/train
 val: images/val
 names:

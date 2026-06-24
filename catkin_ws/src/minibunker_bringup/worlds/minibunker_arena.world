@@ -1,6 +1,6 @@
 <?xml version="1.0"?>
 <!-- ==========================================================================
-     spacemine_arena.world — self-contained Gazebo Classic world (plan.md §8.5).
+     minibunker_arena.world — self-contained Gazebo Classic world (plan.md §8.5).
 
      Cones and the fence are NOT baked into this static world -- both are spawned
      at launch by arena_setup.py (sequentially, via /gazebo/spawn_sdf_model), so
@@ -15,7 +15,7 @@
      under the kinematic planar-move drive.
      ========================================================================== -->
 <sdf version="1.6">
-  <world name="spacemine_arena">
+  <world name="minibunker_arena">
 
     <include><uri>model://sun</uri></include>
 

@@ -1,4 +1,4 @@
-# QUICKSTART — MiniBunker SpaceMine
+# QUICKSTART — MiniBunker
 
 Three ways to run, smallest first. All three use the **same** detector +
 behaviour nodes; only the camera source and drive backend change (plan.md §3).
@@ -25,7 +25,7 @@ behaviour nodes; only the camera source and drive backend change (plan.md §3).
 Clone with submodules (the three AgileX repos are vendored):
 
 ```bash
-git clone --recurse-submodules https://github.com/billisandr/minibunker-spacemine-workshop
+git clone --recurse-submodules https://github.com/billisandr/minibunker-workshop
 # already cloned without --recurse-submodules?
 git submodule update --init --recursive
 ```
@@ -40,7 +40,7 @@ git submodule update --init --recursive
 & "C:\Program Files\Git\bin\bash.exe" ./start_sim.sh "mb_sim backend:=cnn"
 ```
 
-You should see Gazebo with the Bunker in the spacemine arena (green ore ball +
+You should see Gazebo with the Bunker in the minibunker arena (green ore ball +
 orange cones). The rover boots **DISARMED** — it won't move until you ARM it
 (see §3). Gazebo's camera plugin publishes `/camera/image_raw`; the Bunker's
 planar-move plugin consumes `/cmd_vel` and emits `/odom`.
@@ -61,7 +61,7 @@ cone) or a video file into `/camera/image_raw`, so the whole detect→behave sta
 runs on any laptop with nothing attached:
 
 ```bash
-docker run -it --rm minibunker-spacemine bash -ic "\
+docker run -it --rm minibunker bash -ic "\
   roscore & sleep 2; \
   rosparam set camera/source synthetic; \
   rosrun minibunker_perception image_pub_node.py & \

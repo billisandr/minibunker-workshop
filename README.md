@@ -1,4 +1,4 @@
-# MiniBunker SpaceMine Workshop
+# MiniBunker Workshop
 
 A Space Summer School station: an AgileX **Bunker Mini 2.0** tracked rover that uses a
 **Raspberry Pi 5 + Pi Camera** and a small **CNN** to recognise a **green ball** (the
@@ -35,8 +35,8 @@ bundled bash by full path; from a Git Bash prompt drop the prefix and use
 `bash ./start_sim.sh`):
 
 ```powershell
-git clone --recurse-submodules https://github.com/billisandr/minibunker-spacemine-workshop
-cd minibunker-spacemine-workshop
+git clone --recurse-submodules https://github.com/billisandr/minibunker-workshop
+cd minibunker-workshop
 & "C:\Program Files\Git\bin\bash.exe" ./start_sim.sh                              # Gazebo sim (HSV baseline)
 & "C:\Program Files\Git\bin\bash.exe" ./catkin_ws/src/minibunker_ui/run_ui.sh     # http://localhost:8501
 ```
@@ -49,7 +49,7 @@ Full walkthrough (incl. a hardware-free synthetic loop) → **[docs/QUICKSTART.m
 catkin_ws/src/
 ├── minibunker_perception/   detector_node (CNN+HSV), pi_camera_node, image_pub_node
 ├── minibunker_behavior/     behavior_node (state machine)
-├── minibunker_bringup/      launch + spacemine world + camera xacro + master YAML
+├── minibunker_bringup/      launch + minibunker world + camera xacro + master YAML
 ├── minibunker_ui/           Streamlit app + rosbridge launch
 ├── ugv_gazebo_sim/          (submodule) Bunker / Bunker-Mini Gazebo description
 ├── bunker_ros/              (submodule) real driver: bunker_base/bringup/msgs

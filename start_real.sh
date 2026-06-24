@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ============================================================================
-#  start_real.sh — bring up the MiniBunker SpaceMine station on the REAL robot
+#  start_real.sh — bring up the MiniBunker station on the REAL robot
 #  (Raspberry Pi 5 + Pi Camera + CAN -> bunker_base). Run ON THE PI.
 #
 #  Prereqs on the Pi host (see docs/HARDWARE_SETUP.md):
@@ -10,7 +10,7 @@
 #    • Image built for arm64 (see docs/HARDWARE_SETUP.md):
 #        docker build -f docker/Dockerfile \
 #          --build-arg ROS_BASE_IMAGE=arm64v8/ros:noetic-ros-base \
-#          -t minibunker-spacemine .
+#          -t minibunker .
 #
 #  SAFETY: the rover boots DISARMED (zero Twist). It only moves after an
 #  explicit ARM from the Streamlit UI or `mb_arm`. Keep the hardware e-stop
@@ -20,7 +20,7 @@
 # ============================================================================
 set -euo pipefail
 
-IMAGE="minibunker-spacemine"
+IMAGE="minibunker"
 CONTAINER="minibunker-real"
 CAN_IF="${CAN_IF:-can0}"
 CAN_BITRATE="${CAN_BITRATE:-500000}"

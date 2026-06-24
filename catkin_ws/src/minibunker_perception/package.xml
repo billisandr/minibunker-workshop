@@ -3,7 +3,7 @@
   <name>minibunker_perception</name>
   <version>0.1.0</version>
   <description>
-    Perception for the MiniBunker SpaceMine station: a Pi-camera source, a demo
+    Perception for the MiniBunker station: a Pi-camera source, a demo
     image publisher, and a detector node with two interchangeable backends
     (CNN and classic HSV) that both publish vision_msgs/Detection2DArray.
   </description>
