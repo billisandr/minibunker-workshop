@@ -7,8 +7,15 @@ Streamlit **Controls** tab mid-run — no relaunch.
 | `follow_item` | Behaviour |
 | --- | --- |
 | `none` *(default)* | No autonomous driving. You drive with **WASD** teleop (see [TELEOP.md](TELEOP.md)). |
-| `ball` | Autonomous find-and-follow of the green "ore" ball: `SEARCH → APPROACH → COLLECT`, `AVOID`ing hazards. |
+| `ball` | Autonomous find-and-follow of the green "ore" ball: `SEARCH → APPROACH → COLLECT → RETREAT → SEARCH`, `AVOID`ing hazards. |
 | `cone` | Same FSM, but the **cone** is the thing it approaches. |
+
+On reaching the target (within the `behavior/approach/collect_bbox_frac` stop
+distance — keep a minimum gap, ~0.5 m, calibrated per [ARENA.md](ARENA.md)) the
+rover **collects**: it stops, holds for `behavior/collect/pause_sec` (5 s), then
+turns a **random** way and drives off (`RETREAT`) so it doesn't immediately
+re-collect the same item, and resumes `SEARCH`. Tune the cycle under
+`behavior/collect` in `config/minibunker.yaml`.
 
 ```yaml
 mission:

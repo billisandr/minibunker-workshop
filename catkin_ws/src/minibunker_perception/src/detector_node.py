@@ -67,24 +67,36 @@ class HsvDetector:
     def __init__(self, cfg):
         self.cfg = cfg
 
+    @staticmethod
+    def _ksize(spec, default):
+        """Kernel spec -> (height, width). Accepts an int (square) or a [h, w]
+        list, so a colour can ask for a tall, narrow kernel."""
+        if isinstance(spec, (list, tuple)) and len(spec) == 2:
+            kh, kw = int(spec[0]), int(spec[1])
+        else:
+            kh = kw = int(spec if spec is not None else default)
+        return max(1, kh), max(1, kw)
+
     def _detect_colour(self, hsv, sub):
         lower = np.array(sub["lower"], dtype=np.uint8)
         upper = np.array(sub["upper"], dtype=np.uint8)
         mask = cv2.inRange(hsv, lower, upper)
-        # CLOSE before OPEN. A construction cone is orange with white reflective
-        # bands, so its mask comes back as several disconnected stripes; with
-        # RETR_EXTERNAL each stripe is a separate contour and each falls under
-        # min_area, so nothing is detected even though the mask clearly lights
-        # up. Closing with a kernel taller than the white gaps merges the
-        # stripes into one cone blob; opening then drops small speckle noise.
-        close_k = int(sub.get("close_ksize", 5))
-        open_k = int(sub.get("open_ksize", 5))
-        if close_k > 1:
+        # CLOSE before OPEN. A construction cone is orange with white/black bands,
+        # so its orange mask is several *stacked* stripes; with RETR_EXTERNAL each
+        # stripe is a separate sub-min_area contour and nothing is boxed even
+        # though the mask lights up — and the gaps grow as the cone gets closer.
+        # A TALL, narrow close kernel (e.g. [61, 9]) bridges the vertical white
+        # gaps into one blob so the box spans the cone's full orange extent up
+        # close, WITHOUT merging cones standing side by side. Opening then drops
+        # small speckle noise. (Square ints still work, e.g. the ball's 5.)
+        ch, cw = self._ksize(sub.get("close_ksize"), 5)
+        oh, ow = self._ksize(sub.get("open_ksize"), 5)
+        if ch > 1 or cw > 1:
             mask = cv2.morphologyEx(
-                mask, cv2.MORPH_CLOSE, np.ones((close_k, close_k), np.uint8))
-        if open_k > 1:
+                mask, cv2.MORPH_CLOSE, np.ones((ch, cw), np.uint8))
+        if oh > 1 or ow > 1:
             mask = cv2.morphologyEx(
-                mask, cv2.MORPH_OPEN, np.ones((open_k, open_k), np.uint8))
+                mask, cv2.MORPH_OPEN, np.ones((oh, ow), np.uint8))
         contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
         boxes = []
         for c in contours:

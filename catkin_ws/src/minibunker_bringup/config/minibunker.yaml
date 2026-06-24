@@ -52,8 +52,10 @@ detector:
       lower: [5, 120, 90]     # orange
       upper: [25, 255, 255]
       min_area: 1200
-      close_ksize: 25         # bridge the white reflective bands between the
-                              # cone's orange stripes into one blob (see detector)
+      close_ksize: [61, 9]    # [height, width]: TALL+narrow close bridges the
+                              # white/black bands between the cone's orange stripes
+                              # into one full-cone blob (even up close) without
+                              # merging adjacent cones side-by-side (see detector)
       open_ksize: 3
 
 behavior:
@@ -64,8 +66,17 @@ behavior:
   approach:
     steer_gain: 0.8           # P-gain on NORMALISED image-x error (-1..1)
     forward_speed: 0.25       # m/s
-    collect_bbox_frac: 0.45   # ball bbox height / frame height that triggers COLLECT
-    collect_hold_ticks: 20    # ticks to pause at the "ore" before resuming SEARCH
+    collect_bbox_frac: 0.45   # STOP distance: target bbox height / frame height at
+                              # which the rover stops & "collects" (keep a minimum
+                              # gap, ~0.5 m — calibrate the fraction per docs/ARENA.md)
+  collect:                    # the collect -> pause -> random turn-away -> search cycle
+    pause_sec: 5.0            # hold still at the collected item
+    turn_speed: 0.9           # rad/s while turning to leave (clamped to limits)
+    turn_sec_min: 2.5         # random turn duration -> random departure heading
+    turn_sec_max: 4.0
+    away_speed: 0.25          # m/s driving away after the turn
+    away_sec_min: 1.5         # random drive-away duration
+    away_sec_max: 3.0
   avoid:
     cone_danger_frac: 0.35    # cone bbox height fraction (low-centre) that triggers AVOID
     backoff_speed: -0.15      # m/s (reverse)

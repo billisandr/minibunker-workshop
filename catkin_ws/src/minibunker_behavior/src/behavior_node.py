@@ -9,11 +9,17 @@
 #               /minibunker/state            (std_msgs/String) current FSM state
 #
 #  Mission (mission/follow_item, re-read every tick so the UI flips it live):
-#     ball | cone -> autonomous follow: SEARCH -> APPROACH -> AVOID -> COLLECT/STOP
+#     ball | cone -> autonomous follow:
+#        SEARCH -> APPROACH -> (AVOID) -> COLLECT -> RETREAT -> SEARCH
 #     none        -> TELEOP: yield /cmd_vel to WASD intent on /minibunker/teleop_cmd
 #  The followed class is whatever the detector packs into the target_* slots, so
 #  the same FSM follows either a ball or a cone (plan2.md §3).
-#  Distance to the target is proxied by its bbox height fraction (no depth).
+#  Distance to the target is proxied by its bbox height fraction (no depth):
+#  APPROACH stops at behavior/approach/collect_bbox_frac (the "keep a minimum
+#  distance" knob — calibrate to ~0.5 m per docs/ARENA.md). On arrival the rover
+#  "collects": COLLECT (pause behavior/collect/pause_sec) then RETREAT (turn a
+#  random way and drive off) so it doesn't immediately re-collect the same item,
+#  then back to SEARCH.
 #
 #  SAFETY: behaviour is the SINGLE owner of /cmd_vel. Autonomous follow, teleop
 #  pass-through and the DISARM zero-Twist all flow through the ONE ARM gate +
@@ -26,12 +32,14 @@
 #     [0] target_seen  [1] target_cx_norm  [2] target_cy_norm
 #     [3] target_h_frac  [4] hazard_seen  [5] hazard_danger  [6] hazard_cx_norm
 # ============================================================================
+import random
+
 import rospy
 from geometry_msgs.msg import Twist
 from std_msgs.msg import Bool, Float32MultiArray, String
 
-SEARCH, APPROACH, AVOID, COLLECT, STOP, TELEOP = (
-    "SEARCH", "APPROACH", "AVOID", "COLLECT", "STOP", "TELEOP")
+SEARCH, APPROACH, AVOID, COLLECT, RETREAT, STOP, TELEOP = (
+    "SEARCH", "APPROACH", "AVOID", "COLLECT", "RETREAT", "STOP", "TELEOP")
 
 
 class BehaviorNode:
@@ -39,7 +47,13 @@ class BehaviorNode:
         self.armed = bool(rospy.get_param("behavior/arm_on_start", False))
         self.state = SEARCH
         self.last_seen_ticks = 0
-        self.collect_hold = 0
+        # collect/retreat sub-sequence (None = not engaged):
+        #   "pause" -> stopped at the collected item
+        #   "turn"  -> rotating a random way/amount to face away
+        #   "away"  -> driving off before resuming SEARCH
+        self.collect_phase = None
+        self.phase_end = rospy.Time(0)      # when the current phase finishes
+        self.retreat_turn_sign = 1.0        # random ±1, chosen when leaving
         self.ps = [0.0] * 7          # latest perception_state
         self.have_ps = False
         self.teleop = Twist()        # latest WASD intent (used only in TELEOP)
@@ -66,6 +80,7 @@ class BehaviorNode:
         rospy.loginfo("[behavior] %s", "ARMED" if self.armed else "DISARMED")
         if not self.armed:
             self.state = STOP
+            self.collect_phase = None      # abandon any collect/retreat maneuver
 
     def on_teleop(self, msg):
         # Store the WASD intent; tick() decides whether to honour it (TELEOP +
@@ -123,23 +138,22 @@ class BehaviorNode:
             self.last_seen_ticks += 1
 
         # ---- transition + control ----
-        if hazard_danger:
+        # A collect/retreat maneuver, once triggered, runs to completion (it is
+        # time-based, so it continues even after we've turned away from the item).
+        # DISARM still overrides it via the armed check at the top of tick().
+        if self.collect_phase is not None:
+            self._run_collect_phase(twist)
+
+        elif hazard_danger:
             # AVOID has priority: back off and turn away from the hazard side.
             self.state = AVOID
             twist.linear.x = p["backoff"]
             twist.angular.z = -p["turn"] if hazard_cx >= 0 else p["turn"]
 
-        elif self.collect_hold > 0:
-            self.state = COLLECT
-            self.collect_hold -= 1
-            # stay stopped a moment at the "ore", then resume searching
-            if self.collect_hold == 0:
-                self.state = SEARCH
-
         elif target_seen and h_frac >= p["collect_frac"]:
-            # close enough -> collect (stop and hold)
-            self.state = COLLECT
-            self.collect_hold = int(rospy.get_param("behavior/approach/collect_hold_ticks", 20))
+            # reached the target (minimum distance) -> "collected": stop, pause,
+            # then turn a random way and drive off. Stays stopped this tick.
+            self._begin_collect()
 
         elif target_seen:
             self.state = APPROACH
@@ -158,6 +172,47 @@ class BehaviorNode:
         twist.linear.x = self._clamp(twist.linear.x, -p["max_lin"], p["max_lin"])
         twist.angular.z = self._clamp(twist.angular.z, -p["max_ang"], p["max_ang"])
         self._emit(self.state, twist)
+
+    # -- collect / retreat sequence -----------------------------------------
+    def _begin_collect(self):
+        """Target reached: stop and start the pause -> turn -> drive-away cycle."""
+        self.state = COLLECT
+        pause = float(rospy.get_param("behavior/collect/pause_sec", 5.0))
+        self.collect_phase = "pause"
+        self.phase_end = rospy.Time.now() + rospy.Duration(pause)
+        rospy.loginfo("[behavior] target collected -> COLLECT (pause %.1fs, then "
+                      "RETREAT)", pause)
+
+    def _run_collect_phase(self, twist):
+        """Drive the timed collect/retreat sub-sequence; sets twist + self.state.
+        Clamping happens back in tick() after this returns."""
+        g = rospy.get_param
+        now = rospy.Time.now()
+        if self.collect_phase == "pause":
+            self.state = COLLECT                 # hold still (twist stays zero)
+            if now >= self.phase_end:
+                # pick a random side + amount so the rover leaves in a random
+                # heading and doesn't just re-approach the same item.
+                self.retreat_turn_sign = random.choice([-1.0, 1.0])
+                dur = random.uniform(float(g("behavior/collect/turn_sec_min", 2.5)),
+                                     float(g("behavior/collect/turn_sec_max", 4.0)))
+                self.phase_end = now + rospy.Duration(dur)
+                self.collect_phase = "turn"
+        elif self.collect_phase == "turn":
+            self.state = RETREAT
+            twist.angular.z = self.retreat_turn_sign * float(
+                g("behavior/collect/turn_speed", 0.9))
+            if now >= self.phase_end:
+                dur = random.uniform(float(g("behavior/collect/away_sec_min", 1.5)),
+                                     float(g("behavior/collect/away_sec_max", 3.0)))
+                self.phase_end = now + rospy.Duration(dur)
+                self.collect_phase = "away"
+        else:  # "away"
+            self.state = RETREAT
+            twist.linear.x = float(g("behavior/collect/away_speed", 0.25))
+            if now >= self.phase_end:
+                self.collect_phase = None         # done -> resume searching
+                self.state = SEARCH
 
     # -- teleop pass-through (mission/follow_item == none) -------------------
     def _tick_teleop(self):
