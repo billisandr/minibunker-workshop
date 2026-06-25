@@ -27,11 +27,18 @@ if [ ! -d "$VENV" ]; then
     echo "[run_ui] creating venv at $VENV"
     "$PY" -m venv "$VENV"
 fi
-# shellcheck disable=SC1091
-if [ -f "$VENV/bin/activate" ]; then source "$VENV/bin/activate"; else source "$VENV/Scripts/activate"; fi
+# Call the venv's interpreter directly instead of `source activate`. The Windows
+# `Scripts/activate` runs `uname` to detect MSYS/Cygwin; in a Git-Bash shell that
+# doesn't have Git's usr/bin on PATH that fails with "uname: command not found".
+# The venv python needs no activation, and this works the same on Win/Linux/Pi.
+if [ -x "$VENV/bin/python" ]; then
+    VPY="$VENV/bin/python"            # Linux / macOS / Pi
+else
+    VPY="$VENV/Scripts/python.exe"    # Windows
+fi
 
-pip install --quiet --upgrade pip
-pip install --quiet -r "$HERE/requirements.txt"
+"$VPY" -m pip install --quiet --upgrade pip
+"$VPY" -m pip install --quiet -r "$HERE/requirements.txt"
 
 echo "[run_ui] starting Streamlit on http://localhost:8501"
-exec streamlit run "$HERE/app.py"
+exec "$VPY" -m streamlit run "$HERE/app.py"
