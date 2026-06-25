@@ -40,12 +40,13 @@ MOVE_BINDINGS = {
     "d": (0.0, -1.0),
     " ": (0.0, 0.0),
     "k": (0.0, 0.0),
+    "x": (0.0, 0.0),
 }
 
 BANNER = """\
 MiniBunker WASD teleop  ->  /minibunker/teleop_cmd
   W forward   S back   A turn-left   D turn-right
-  space / K stop       Q / Ctrl-C quit
+  X / space / K stop   Q / Ctrl-C quit
 NOTE: the rover only moves when ARMED *and* mission/follow_item == none.
 """
 

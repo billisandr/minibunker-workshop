@@ -53,24 +53,36 @@ moving until you press **X** or **DISARM**. If the tab/browser/link closes,
 publishing stops and the watchdog halts the rover. Raise the sidebar **refresh
 Hz** for snappier control. ARM first.
 
-### 2. Terminal teleop node (power users)
+### 2. Terminal teleop in the sim (`teleop.sh`)
 
-A `teleop_twist_keyboard`-style node for real key presses. It needs an
-interactive TTY, so it is **run by hand, not from roslaunch**:
+A `teleop_twist_keyboard`-style node for real key presses, run **inside the
+running sim container** so it shares the sim's ROS graph. It needs an
+interactive TTY, so it is **run by hand, not from roslaunch**. The `teleop.sh`
+helper does the `docker exec` for you (and uses `winpty` on Git Bash so the TTY
+works):
 
 ```bash
-# from the host, into the running station container:
-docker exec -it minibunker rosrun minibunker_behavior teleop_node.py
+# in a SECOND terminal, after `bash start_sim.sh`:
+bash teleop.sh
 ```
 
-On Windows run the host side via Git Bash (workspace convention):
+On Windows via Git Bash (workspace convention):
 
 ```powershell
-& "C:\Program Files\Git\bin\bash.exe" -c 'docker exec -it minibunker rosrun minibunker_behavior teleop_node.py'
+& "C:\Program Files\Git\bin\bash.exe" ./teleop.sh
 ```
 
-It publishes the current intent continuously at `publish_hz` (keeping the
-watchdog fed while moving) and a final zero on quit.
+Then set **Mission = none** and press **ARM** in the UI, focus the teleop
+terminal, and drive: **W/A/S/D**, **X / space / K** stop, **Q** quit. It
+publishes the current intent continuously at `publish_hz` (keeping the watchdog
+fed while moving) and a final zero on quit.
+
+Under the hood `teleop.sh` just runs, against the `minibunker-sim` container
+(override with `MB_CONTAINER`):
+
+```bash
+docker exec -it minibunker-sim bash -ic "rosrun minibunker_behavior teleop_node.py"
+```
 
 ## Quick test (sim)
 

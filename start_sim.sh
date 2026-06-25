@@ -75,5 +75,7 @@ for _ in $(seq 1 90); do
 done
 log "ROS is up. To launch the Streamlit panel, in another terminal run:"
 log "    bash catkin_ws/src/minibunker_ui/run_ui.sh"
+log "To drive with the keyboard (Mission=none + ARM), in another terminal run:"
+log "    bash teleop.sh"
 log "Following sim logs (Ctrl+C stops the station)…"
 docker logs -f "$CONTAINER"
