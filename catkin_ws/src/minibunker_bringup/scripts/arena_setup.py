@@ -37,8 +37,9 @@ FENCE_SDF = """<?xml version="1.0"?>
 #  - COLLISION is a cheap CYLINDER, not the mesh: dynamic mesh-mesh collisions in
 #    ODE are slow and jittery; a primitive makes the knock-over stable. The
 #    detailed mesh stays as the (orange) VISUAL the detector sees.
-#  - friction mu is HIGHER than the ball's (it resists rolling more), but it
-#    still skids when hit. Inertia matches the cylinder so it tips/skids sanely.
+#  - LOW friction + light mass so the rover shoves it aside (it was acting like
+#    concrete and forcing the rover around it). Inertia matches the cylinder so
+#    it tips/skids sanely. mu/mass are arena/cone_mu, arena/cone_mass knobs.
 CONE_SDF_TEMPLATE = """<?xml version="1.0"?>
 <sdf version="1.5">
   <model name="construction_cone">
@@ -104,8 +105,8 @@ def main():
     # Approx physical size of the scaled cone mesh (real ~0.45 m tall at scale 10).
     cone_h = 0.045 * scale
     cone_r = 0.014 * scale
-    mass = float(rospy.get_param("arena/cone_mass", 0.4))   # > ball: more resistance
-    mu = float(rospy.get_param("arena/cone_mu", 0.5))       # > ball's 0.2
+    mass = float(rospy.get_param("arena/cone_mass", 0.2))   # light enough to shove aside
+    mu = float(rospy.get_param("arena/cone_mu", 0.15))      # low friction -> skids, not concrete
     cz = cone_h / 2.0
     izz = 0.5 * mass * cone_r ** 2
     ixx = iyy = (1.0 / 12.0) * mass * (3.0 * cone_r ** 2 + cone_h ** 2)
