@@ -24,7 +24,6 @@ import threading
 
 import numpy as np
 import streamlit as st
-import streamlit.components.v1 as components
 
 import roslibpy
 
@@ -201,13 +200,13 @@ with col_view:
     with view_l:
         if img is not None:
             st.image(img, caption="/minibunker/debug_image",
-                     use_container_width=True)
+                     width="stretch")
         else:
             st.info("Waiting for the annotated camera feed…")
     with view_r:
         if show_mask:
             st.image(mask, caption="what the rover sees (HSV mask)", clamp=True,
-                     use_container_width=True)
+                     width="stretch")
         else:
             st.caption("HSV mask shows here in hsv mode.")
 
@@ -235,10 +234,10 @@ tab_ctrl, tab_detect, tab_behave = st.tabs(["Controls", "Detector", "Behaviour"]
 
 with tab_ctrl:
     c1, c2, c3 = st.columns(3)
-    if c1.button("🟢 ARM", use_container_width=True):
+    if c1.button("🟢 ARM", width="stretch"):
         publish_arm(client, True)
         st.success("ARMED — rover will move")
-    if c2.button("🛑 DISARM", use_container_width=True):
+    if c2.button("🛑 DISARM", width="stretch"):
         publish_arm(client, False)
         st.info("DISARMED — rover frozen")
     backend = get_param(client, "/detector/backend", "hsv")
@@ -269,19 +268,19 @@ with tab_ctrl:
         if "teleop_intent" not in st.session_state:
             st.session_state.teleop_intent = (0.0, 0.0)
         tl = float(get_param(client, "/behavior/teleop/linear_speed", 0.25))
-        ta = float(get_param(client, "/behavior/teleop/angular_speed", 0.8))
+        ta = float(get_param(client, "/behavior/teleop/angular_speed", 0.5))
         pad = st.columns(3)
-        if pad[1].button("⬆️ W", use_container_width=True):
+        if pad[1].button("⬆️ W", width="stretch"):
             st.session_state.teleop_intent = (tl, 0.0)
         mid = st.columns(3)
-        if mid[0].button("⬅️ A", use_container_width=True):
+        if mid[0].button("⬅️ A", width="stretch"):
             st.session_state.teleop_intent = (0.0, ta)
-        if mid[1].button("⏹️ STOP (X)", use_container_width=True):
+        if mid[1].button("⏹️ STOP (X)", width="stretch"):
             st.session_state.teleop_intent = (0.0, 0.0)
-        if mid[2].button("➡️ D", use_container_width=True):
+        if mid[2].button("➡️ D", width="stretch"):
             st.session_state.teleop_intent = (0.0, -ta)
         bot = st.columns(3)
-        if bot[1].button("⬇️ S", use_container_width=True):
+        if bot[1].button("⬇️ S", width="stretch"):
             st.session_state.teleop_intent = (-tl, 0.0)
 
         # Keyboard control: a tiny JS listener on the parent page maps the
@@ -289,7 +288,9 @@ with tab_ctrl:
         # so you can drive from the keyboard. It binds once per session and
         # ignores keys while a text field is focused (so typing host/port etc.
         # never drives the rover). Tap to set intent; X or DISARM to stop.
-        components.html(
+        # st.iframe renders this HTML in a (same-origin) iframe, like the old
+        # components.html, so window.parent reaches the app's buttons.
+        st.iframe(
             """
             <script>
             (function () {
