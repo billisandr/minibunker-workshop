@@ -12,6 +12,13 @@ reactive *space-mining* behaviour. Runs identically in **Gazebo simulation** and
 > Docker image build and the real robot have **not** been run on hardware yet. The
 > design rationale lives in **[plan.md](plan.md)**; start with **[docs/QUICKSTART.md](docs/QUICKSTART.md)**.
 
+## Gallery
+
+| Gazebo simulation | Streamlit control panel |
+| --- | --- |
+| ![Gazebo arena](assets/mb_sim_gz.png) | ![Control panel](assets/mb_sim_ui.png) |
+| ▶ [Watch video](assets/minibunker_sim_gz.mp4) · rover, cones and the ore ball in the Gazebo arena | ▶ [Watch video](assets/minibunker_sim_ui.mp4) · live camera, telemetry, ARM/DISARM, mission + WASD knobs |
+
 ## What it is
 
 - **One ROS graph, two backends** — the same [detector](catkin_ws/src/minibunker_perception/src/detector_node.py)
