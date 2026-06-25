@@ -24,6 +24,7 @@ import threading
 
 import numpy as np
 import streamlit as st
+import streamlit.components.v1 as components
 
 import roslibpy
 
@@ -275,16 +276,55 @@ with tab_ctrl:
         mid = st.columns(3)
         if mid[0].button("⬅️ A", use_container_width=True):
             st.session_state.teleop_intent = (0.0, ta)
-        if mid[1].button("⏹️ STOP", use_container_width=True):
+        if mid[1].button("⏹️ STOP (X)", use_container_width=True):
             st.session_state.teleop_intent = (0.0, 0.0)
         if mid[2].button("➡️ D", use_container_width=True):
             st.session_state.teleop_intent = (0.0, -ta)
         bot = st.columns(3)
         if bot[1].button("⬇️ S", use_container_width=True):
             st.session_state.teleop_intent = (-tl, 0.0)
-        st.caption("Click-to-set, not key-hold: intent is re-published each "
-                   "refresh and persists until STOP/DISARM. If the browser or "
-                   "link drops, behaviour's watchdog stops the rover. Needs ARM.")
+
+        # Keyboard control: a tiny JS listener on the parent page maps the
+        # physical W/A/S/D keys (and X = stop) to clicking the pad buttons above,
+        # so you can drive from the keyboard. It binds once per session and
+        # ignores keys while a text field is focused (so typing host/port etc.
+        # never drives the rover). Tap to set intent; X or DISARM to stop.
+        components.html(
+            """
+            <script>
+            (function () {
+              const pwin = window.parent, pdoc = pwin.document;
+              if (pwin.__wasdBound) return;            // bind only once
+              pwin.__wasdBound = true;
+              const MAP = {KeyW:'W', KeyS:'S', KeyA:'A', KeyD:'D', KeyX:'STOP'};
+              function matches(label, want) {
+                const t = (label || '').trim();
+                if (want === 'STOP') return t.indexOf('STOP') !== -1;
+                return t.endsWith(' ' + want) || t === want;
+              }
+              pdoc.addEventListener('keydown', function (e) {
+                if (e.repeat) return;
+                const want = MAP[e.code];
+                if (!want) return;
+                const ae = pdoc.activeElement, tag = ae ? ae.tagName : '';
+                if (tag === 'INPUT' || tag === 'TEXTAREA' ||
+                    (ae && ae.isContentEditable)) return;   // don't hijack typing
+                const btns = Array.prototype.slice.call(
+                    pdoc.querySelectorAll('button'));
+                const hit = btns.find(function (b) {
+                    return matches(b.innerText, want); });
+                if (hit) { hit.click(); e.preventDefault(); }
+              });
+            })();
+            </script>
+            """,
+            height=0,
+        )
+        st.caption("Drive with the **W A S D** keys (or click); **X** stops. "
+                   "Keys set an intent that's re-published each refresh and "
+                   "persists until X/DISARM; if the link drops, the watchdog "
+                   "stops the rover. Needs ARM. (Click the page once so it has "
+                   "keyboard focus.)")
 
 with tab_detect:
     st.caption("CNN confidence applies in cnn mode; HSV ranges apply in hsv mode.")

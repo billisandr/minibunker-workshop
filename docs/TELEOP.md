@@ -9,7 +9,7 @@ the rover does not drive itself. You drive it with **WASD**.
 | **S** | back |
 | **A** | turn left |
 | **D** | turn right |
-| **space / K** | stop |
+| **X** (UI) / **space / K** (terminal) | stop |
 | **Q / Ctrl-C** | quit (terminal node only) |
 
 ## Safety model (read this)
@@ -42,11 +42,16 @@ behavior:
 Controls tab → **🎮 WASD drive** pad (only shown when Mission = `none`). It
 publishes `teleop_cmd` straight over rosbridge — no extra node needed.
 
-It is **click-to-set, not key-hold**: a click sets the intent (e.g. forward), and
-the UI re-publishes that intent every refresh so the rover keeps moving until you
-press **STOP** or **DISARM**. If the tab/browser/link closes, publishing stops
-and the watchdog halts the rover. Raise the sidebar **refresh Hz** for snappier
-control. ARM first.
+Drive with the physical **W A S D** keys (or click the buttons); **X** stops. A
+small JS listener in the UI maps those keys to the pad buttons; it ignores keys
+while a text field is focused, so typing the host/port never drives the rover.
+Click anywhere on the page once so it has keyboard focus.
+
+It is **set-and-persist, not key-hold**: a key/click sets the intent (e.g.
+forward), and the UI re-publishes that intent every refresh so the rover keeps
+moving until you press **X** or **DISARM**. If the tab/browser/link closes,
+publishing stops and the watchdog halts the rover. Raise the sidebar **refresh
+Hz** for snappier control. ARM first.
 
 ### 2. Terminal teleop node (power users)
 
