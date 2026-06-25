@@ -190,15 +190,25 @@ mission = get_param(client, "/mission/follow_item", "none")
 # ---- top row: live view + telemetry ----
 col_view, col_tel = st.columns([3, 1])
 with col_view:
+    # Annotated feed + HSV mask side by side (each half-width) rather than two
+    # full-width monitors stacked vertically.
     img = compressed_to_np(snap["debug_image"])
-    if img is not None:
-        st.image(img, caption="/minibunker/debug_image", use_container_width=True)
-    else:
-        st.info("Waiting for the annotated camera feed…")
     mask = ros_image_to_np(snap["hsv_mask"])
-    if mask is not None and get_param(client, "/detector/backend", "hsv") == "hsv":
-        st.image(mask, caption="what the rover sees (HSV mask)", clamp=True,
-                 use_container_width=True)
+    show_mask = mask is not None and \
+        get_param(client, "/detector/backend", "hsv") == "hsv"
+    view_l, view_r = st.columns(2)
+    with view_l:
+        if img is not None:
+            st.image(img, caption="/minibunker/debug_image",
+                     use_container_width=True)
+        else:
+            st.info("Waiting for the annotated camera feed…")
+    with view_r:
+        if show_mask:
+            st.image(mask, caption="what the rover sees (HSV mask)", clamp=True,
+                     use_container_width=True)
+        else:
+            st.caption("HSV mask shows here in hsv mode.")
 
 with col_tel:
     state = snap["state"]["data"] if snap["state"] else "—"
