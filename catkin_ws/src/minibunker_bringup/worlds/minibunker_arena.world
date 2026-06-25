@@ -36,12 +36,29 @@
          false) -- see minibunker_bringup/scripts/arena_setup.py, which holds
          the exact same four-wall SDF that used to live here. -->
 
-    <!-- green "ore" ball -->
+    <!-- green "ore" ball: DYNAMIC + light, so the rover can nudge it and it
+         rolls (was <static>true</static>, which made it an immovable brick).
+         Sphere inertia: I = 2/5 * m * r^2 = 2/5 * 0.2 * 0.15^2 = 0.0018. -->
     <model name="ore_ball">
-      <static>true</static>
+      <static>false</static>
       <pose>2.6 0.4 0.15 0 0 0</pose>
       <link name="link">
-        <collision name="c"><geometry><sphere><radius>0.15</radius></sphere></geometry></collision>
+        <inertial>
+          <mass>0.2</mass>
+          <inertia>
+            <ixx>0.0018</ixx><iyy>0.0018</iyy><izz>0.0018</izz>
+            <ixy>0</ixy><ixz>0</ixz><iyz>0</iyz>
+          </inertia>
+        </inertial>
+        <collision name="c">
+          <geometry><sphere><radius>0.15</radius></sphere></geometry>
+          <surface>
+            <!-- moderate friction so a push induces rolling (not sliding);
+                 light damping keeps the contact stable for a low-mass body. -->
+            <friction><ode><mu>0.6</mu><mu2>0.6</mu2></ode></friction>
+            <contact><ode><kp>100000.0</kp><kd>1.0</kd></ode></contact>
+          </surface>
+        </collision>
         <visual name="v">
           <geometry><sphere><radius>0.15</radius></sphere></geometry>
           <material><ambient>0.05 0.6 0.05 1</ambient><diffuse>0.1 0.9 0.1 1</diffuse><emissive>0.0 0.2 0.0 1</emissive></material>
