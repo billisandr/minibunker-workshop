@@ -23,6 +23,14 @@ mission:
 arena:
   fence_enabled: false        # sim only: spawn the 4-wall arena boundary in Gazebo
   cone_scale: 0.3             # sim only: uniform scale on the construction_cone mesh
+  # Dynamic-cone physics (sim only). Read once by arena_setup.py at spawn, so a
+  # change needs a relaunch (with the dev mount that's just `bash start_sim.sh`).
+  # The rover plows via PlanarMove, so these mostly set how far a cone skids.
+  cone_mass: 0.2              # kg; heavier resists more than the ball, still knockable
+  cone_mu: 0.15               # ground friction; lower = skids farther (ball is 0.2)
+  cone_kp: 1000               # contact stiffness. Lower = softer but the cone SINKS more
+                              # (sink ~= mass*9.8/kp:  kp=1000 -> ~2 mm,  kp=10 -> ~20 cm!)
+  cone_kd: 1.0                # contact damping
 
 camera:
   source: gazebo              # gazebo | picamera | webcam | video:/abs/path.mp4 | synthetic
