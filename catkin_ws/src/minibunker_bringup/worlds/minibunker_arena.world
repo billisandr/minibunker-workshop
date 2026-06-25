@@ -36,26 +36,28 @@
          false) -- see minibunker_bringup/scripts/arena_setup.py, which holds
          the exact same four-wall SDF that used to live here. -->
 
-    <!-- green "ore" ball: DYNAMIC + light, so the rover can nudge it and it
-         rolls (was <static>true</static>, which made it an immovable brick).
-         Sphere inertia: I = 2/5 * m * r^2 = 2/5 * 0.2 * 0.15^2 = 0.0018. -->
+    <!-- green "ore" ball: DYNAMIC + very light, so the rover knocks it away and
+         it rolls freely (was <static>true</static>, an immovable brick).
+         Sphere inertia MUST match the mass or it won't roll freely:
+         I = 2/5 * m * r^2 = 2/5 * 0.02 * 0.15^2 = 0.00018. -->
     <model name="ore_ball">
       <static>false</static>
       <pose>2.6 0.4 0.15 0 0 0</pose>
       <link name="link">
         <inertial>
-          <mass>0.2</mass>
+          <mass>0.02</mass>
           <inertia>
-            <ixx>0.0018</ixx><iyy>0.0018</iyy><izz>0.0018</izz>
+            <ixx>0.00018</ixx><iyy>0.00018</iyy><izz>0.00018</izz>
             <ixy>0</ixy><ixz>0</ixz><iyz>0</iyz>
           </inertia>
         </inertial>
         <collision name="c">
           <geometry><sphere><radius>0.15</radius></sphere></geometry>
           <surface>
-            <!-- moderate friction so a push induces rolling (not sliding);
-                 light damping keeps the contact stable for a low-mass body. -->
-            <friction><ode><mu>0.6</mu><mu2>0.6</mu2></ode></friction>
+            <!-- LOWEST friction of all objects -> least rolling resistance, so
+                 the ball rolls freely (cones use higher mu). Light damping keeps
+                 a low-mass body stable on contact. -->
+            <friction><ode><mu>0.2</mu><mu2>0.2</mu2></ode></friction>
             <contact><ode><kp>100000.0</kp><kd>1.0</kd></ode></contact>
           </surface>
         </collision>
