@@ -122,6 +122,25 @@ ui:
 arena:
   objects:
 
+    floor:                    # dark mining-floor ground plane
+      enabled: true
+      type: plane
+      size: 12.0              # square plane edge (m)
+      static: true
+      color: [0.2, 0.2, 0.22]
+      mu: 1.0                 # ground friction (ODE uses min(this, a prop's mu))
+      kp: 1000000             # rigid ground, so each prop's own kp governs its sink
+      kd: 1.0
+
+    sun:                      # directional light
+      enabled: true
+      type: light
+      light_type: directional   # directional | point | spot
+      direction: [-0.4, 0.3, -0.9]
+      diffuse: [0.9, 0.9, 0.9]
+      specular: [0.2, 0.2, 0.2]
+      cast_shadows: true
+
     ore_ball:                 # the green "ore" target
       enabled: true
       type: sphere
@@ -130,7 +149,7 @@ arena:
       static: false
       color: [0.1, 0.9, 0.1]
       mass: 0.02              # very light -> rolls freely when nudged
-      mu: 0.2                 # lowest friction of all objects
+      mu: 0.3                 # lowest friction of all objects
       kp: 10000
       kd: 1.0
 
@@ -140,8 +159,8 @@ arena:
       scale: 3.0              # mesh scale (~0.45 m tall at scale 10)
       pose: [1.4, -0.9]
       static: false
-      mass: 0.05
-      mu: 0.1                 # skids when hit; resists a bit more than the ball
+      mass: 0.03
+      mu: 0.05                 # skids when hit; resists a bit more than the ball
       kp: 10000               # stiff (low sink)…
       kd: 50                  # …with damping so it doesn't bob in place
 
@@ -149,10 +168,10 @@ arena:
       enabled: true
       type: cone_mesh
       scale: 3.0
-      pose: [2.0, 1.1]
+      pose: [2.0, 2.1]
       static: false
-      mass: 0.05
-      mu: 0.1
+      mass: 0.03
+      mu: 0.05
       kp: 10000
       kd: 50
 
@@ -162,8 +181,8 @@ arena:
       scale: 3.0
       pose: [3.2, -1.4]
       static: false
-      mass: 0.05
-      mu: 0.1
+      mass: 0.03
+      mu: 0.05
       kp: 10000
       kd: 50
 

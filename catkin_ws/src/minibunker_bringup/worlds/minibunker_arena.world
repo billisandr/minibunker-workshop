@@ -2,34 +2,25 @@
 <!-- ==========================================================================
      minibunker_arena.world — self-contained Gazebo Classic world (plan.md §8.5).
 
-     This world holds ONLY the ground plane, lighting and physics. EVERY prop
-     (ball, cones, fence) is defined in one place — the `arena:` block at the
-     bottom of config/minibunker.yaml — and spawned at launch by arena_setup.py
-     (one at a time, via /gazebo/spawn_sdf_model, to dodge a Gazebo/Ogre race
-     when several identical cone meshes load at once). Cones use the real
-     model://construction_cone mesh, vendored into the image at build time under
-     ~/.gazebo/models (docker/Dockerfile), so the sim runs with zero network
-     access. See docs/ARENA.md for the object schema.
+     This world holds ONLY physics + a baseline ambient. EVERY object — the
+     floor, the sun light, the ball, cones and fence — is defined in one place,
+     the `arena:` block at the bottom of config/minibunker.yaml, and spawned at
+     launch by arena_setup.py (one at a time, via /gazebo/spawn_sdf_model, to
+     dodge a Gazebo/Ogre race when several identical cone meshes load at once).
+     Cones use the real model://construction_cone mesh, vendored into the image
+     at build time under ~/.gazebo/models (docker/Dockerfile), so the sim runs
+     with zero network access. The <scene> ambient below is just a safety floor
+     so the scene is never pitch black if the spawned sun is disabled/changed.
+     See docs/ARENA.md for the object schema.
      ========================================================================== -->
 <sdf version="1.6">
   <world name="minibunker_arena">
 
-    <include><uri>model://sun</uri></include>
+    <!-- baseline ambient only; the directional "sun" is spawned from the yaml -->
+    <scene><ambient>0.3 0.3 0.3 1</ambient><background>0.6 0.6 0.65 1</background></scene>
 
-    <!-- dark mining-floor ground -->
-    <model name="arena_floor">
-      <static>true</static>
-      <link name="link">
-        <collision name="c"><geometry><plane><normal>0 0 1</normal><size>12 12</size></plane></geometry></collision>
-        <visual name="v">
-          <geometry><plane><normal>0 0 1</normal><size>12 12</size></plane></geometry>
-          <material><ambient>0.15 0.15 0.17 1</ambient><diffuse>0.2 0.2 0.22 1</diffuse></material>
-        </visual>
-      </link>
-    </model>
-
-    <!-- All props (ball, cones, fence) are spawned at launch by arena_setup.py
-         from the `arena:` block at the bottom of config/minibunker.yaml. Nothing
+    <!-- Floor, sun and all props are spawned at launch by arena_setup.py from
+         the `arena:` block at the bottom of config/minibunker.yaml. Nothing
          object-related is baked into this world. -->
 
     <physics type="ode"><max_step_size>0.004</max_step_size><real_time_factor>1.0</real_time_factor></physics>

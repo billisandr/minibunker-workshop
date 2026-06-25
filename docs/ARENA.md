@@ -26,14 +26,16 @@ objects + lighting.
 
 ### Sim arena objects (single source of truth)
 
-In sim, **every** prop — ball, cones, fence — is defined in **one place**: the
-`arena:` block at the bottom of `config/minibunker.yaml`. The `.world` file holds
-only the ground, lighting and physics; `arena_setup.py` reads the block and spawns
-each object. Each entry sets its `type`, size, `pose`, `static` flag, `color`,
-`mass`, friction (`mu`) and contact (`kp`/`kd`); **inertia is auto-computed** from
+In sim, **every** object — the `floor`, the `sun` light, the ball, cones and
+fence — is defined in **one place**: the `arena:` block at the bottom of
+`config/minibunker.yaml`. The `.world` file holds only physics and a baseline
+ambient; `arena_setup.py` reads the block and spawns each object (floor + lights
+first). Entries set `type` (`sphere`/`box`/`cylinder`/`cone_mesh`/`plane`/`fence`
+/`light`), size, `pose`, `static` flag, `color`, and for dynamic props `mass`,
+friction (`mu`) and contact (`kp`/`kd`); **inertia is auto-computed** from
 type + size + mass (override with `inertia: [ixx,iyy,izz]` only if needed). Add,
-remove, move or re-tune props by editing that block, then relaunch (with the dev
-mount, just `bash start_sim.sh` — no rebuild).
+remove, move or re-tune anything by editing that block, then relaunch (with the
+dev mount, just `bash start_sim.sh` — no rebuild).
 
 ## Distance calibration (one-time, optional)
 

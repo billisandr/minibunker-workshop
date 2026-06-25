@@ -91,6 +91,9 @@ def _geom(otype, spec):
     if otype == "box":
         a, b, c = (float(v) for v in spec["size"])
         return "<box><size>%g %g %g</size></box>" % (a, b, c)
+    if otype == "plane":
+        s = float(spec.get("size", 12.0))
+        return "<plane><normal>0 0 1</normal><size>%g %g</size></plane>" % (s, s)
     if otype in ("cylinder", "cone_mesh"):
         r, h = _cyl_dims(otype, spec)
         return "<cylinder><radius>%g</radius><length>%g</length></cylinder>" % (r, h)
@@ -137,6 +140,23 @@ def _prop_sdf(name, spec):
     return _model_sdf(name, static, inner)
 
 
+def _light_sdf(name, spec):
+    """A world light (directional 'sun', or point/spot). Position is cosmetic for
+    a directional light — only <direction> matters."""
+    lt = str(spec.get("light_type", "directional"))
+    d = spec.get("direction", [-0.4, 0.3, -0.9])
+    diff = spec.get("diffuse", [0.9, 0.9, 0.9])
+    spc = spec.get("specular", [0.2, 0.2, 0.2])
+    cast = "true" if spec.get("cast_shadows", True) else "false"
+    return ('<?xml version="1.0"?><sdf version="1.6">'
+            '<light type="%s" name="%s"><pose>0 0 10 0 0 0</pose>'
+            '<cast_shadows>%s</cast_shadows>'
+            '<diffuse>%g %g %g 1</diffuse><specular>%g %g %g 1</specular>'
+            '<direction>%g %g %g</direction></light></sdf>'
+            % (lt, name, cast, diff[0], diff[1], diff[2],
+               spc[0], spc[1], spc[2], d[0], d[1], d[2]))
+
+
 def _fence_sdf(name, spec):
     """A four-wall boundary ring (static)."""
     span = float(spec.get("span", 6.0))
@@ -157,8 +177,12 @@ def _fence_sdf(name, spec):
 
 
 def _build_sdf(name, spec):
-    return (_fence_sdf(name, spec) if spec.get("type") == "fence"
-            else _prop_sdf(name, spec))
+    t = spec.get("type")
+    if t == "fence":
+        return _fence_sdf(name, spec)
+    if t == "light":
+        return _light_sdf(name, spec)
+    return _prop_sdf(name, spec)
 
 
 # --- main ------------------------------------------------------------------
@@ -172,20 +196,28 @@ def main():
         rospy.logwarn("[arena_setup] no arena/objects in config — nothing to spawn")
         return
 
-    for name, spec in objects.items():
+    # Spawn the floor + lights first so props always have ground to rest on.
+    def _order(item):
+        return 0 if item[1].get("type") in ("plane", "light") else 1
+
+    for name, spec in sorted(objects.items(), key=_order):
         if not spec.get("enabled", True):
             rospy.loginfo("[arena_setup] %s disabled — skipping", name)
             continue
-        pose = spec.get("pose", [0.0, 0.0])
-        yaw = float(pose[2]) if len(pose) > 2 else 0.0
+        otype = spec.get("type")
         try:
             sdf = _build_sdf(name, spec)
         except (KeyError, ValueError) as exc:
             rospy.logwarn("[arena_setup] %s spec invalid (%s) — skipping", name, exc)
             continue
-        resp = spawn(name, sdf, "", _pose(pose[0], pose[1], 0.0, yaw), "world")
-        rospy.loginfo("[arena_setup] %s (%s): %s",
-                      name, spec.get("type"), resp.status_message)
+        if otype == "light":
+            pose = _pose(0.0, 0.0, 0.0)        # directional: position is cosmetic
+        else:
+            p = spec.get("pose", [0.0, 0.0])
+            yaw = float(p[2]) if len(p) > 2 else 0.0
+            pose = _pose(p[0], p[1], 0.0, yaw)
+        resp = spawn(name, sdf, "", pose, "world")
+        rospy.loginfo("[arena_setup] %s (%s): %s", name, otype, resp.status_message)
 
 
 if __name__ == "__main__":
