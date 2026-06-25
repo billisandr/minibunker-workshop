@@ -60,7 +60,7 @@ CONE_SDF_TEMPLATE = """<?xml version="1.0"?>
         </geometry>
         <surface>
           <friction><ode><mu>{mu}</mu><mu2>{mu}</mu2></ode></friction>
-          <contact><ode><kp>100000.0</kp><kd>1.0</kd></ode></contact>
+          <contact><ode><kp>{kp}</kp><kd>{kd}</kd></ode></contact>
         </surface>
       </collision>
       <visual name="visual">
@@ -107,12 +107,17 @@ def main():
     cone_r = 0.014 * scale
     mass = float(rospy.get_param("arena/cone_mass", 0.2))   # light enough to shove aside
     mu = float(rospy.get_param("arena/cone_mu", 0.15))      # low friction -> skids, not concrete
+    # Contact stiffness/damping. Softer (lower kp) than the rigid 1e5 default so
+    # the knock-over is smooth, not a stiff jitter. kp=1000 sinks a 0.2 kg cone
+    # only ~2 mm; drop toward 100 (like the ball) if you want it softer still.
+    kp = float(rospy.get_param("arena/cone_kp", 1000.0))
+    kd = float(rospy.get_param("arena/cone_kd", 1.0))
     cz = cone_h / 2.0
     izz = 0.5 * mass * cone_r ** 2
     ixx = iyy = (1.0 / 12.0) * mass * (3.0 * cone_r ** 2 + cone_h ** 2)
     cone_sdf = CONE_SDF_TEMPLATE.format(
         scale=scale, mass=mass, mu=mu, cr=cone_r, ch=cone_h, cz=cz,
-        ixx=ixx, iyy=iyy, izz=izz)
+        ixx=ixx, iyy=iyy, izz=izz, kp=kp, kd=kd)
     for name, (x, y) in CONE_POSITIONS.items():
         resp = spawn(name, cone_sdf, "", _pose(x, y), "world")
         rospy.loginfo("[arena_setup] %s spawn: %s", name, resp.status_message)
