@@ -11,6 +11,12 @@
 #    bash start_sim.sh                       # build (if needed) + run sim
 #    bash start_sim.sh --rebuild             # force a clean image rebuild
 #    bash start_sim.sh "mb_sim backend:=cnn" # pass a launch override
+#
+#  DEV MOUNT: by default this bind-mounts the host catkin_ws/src over the copy
+#  baked into the image, so edits to the world file, arena_setup.py, launch
+#  files, minibunker.yaml and the Python nodes go LIVE on a plain relaunch — no
+#  --rebuild needed (only C++ / custom-message changes still need a rebuild).
+#  Set MB_NO_MOUNT=1 to disable and use the image's baked-in source.
 # ============================================================================
 set -euo pipefail
 
@@ -60,11 +66,26 @@ fi
 docker rm -f "$CONTAINER" >/dev/null 2>&1 || true
 trap 'log "Stopping container…"; docker stop "$CONTAINER" >/dev/null 2>&1 || true' EXIT INT TERM
 
+# Dev source mount: overlay the host's catkin_ws/src onto the container so the
+# launch-time files (world, arena_setup.py, launch, config, Python nodes) are
+# read live — no rebuild, no Docker build-cache games. `pwd -W` gives the Windows
+# path Docker Desktop wants; --mount source= avoids the drive-letter ':' clashing
+# with -v's separator. Read-only so the container can't litter the host src.
+MOUNT_ARGS=()
+if [ "${MB_NO_MOUNT:-0}" != "1" ]; then
+    SRC_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/catkin_ws/src" && { pwd -W 2>/dev/null || pwd; })"
+    MOUNT_ARGS=(--mount "type=bind,source=${SRC_DIR},target=/home/rosuser/catkin_ws/src,readonly")
+    log "Dev mount (live edits): ${SRC_DIR} -> /home/rosuser/catkin_ws/src [ro]"
+else
+    log "MB_NO_MOUNT=1 -> using the source baked into the image (no live edits)"
+fi
+
 log "Starting Gazebo sim ($LAUNCH)…  rosbridge will be on ws://localhost:9090"
 docker run -d --rm \
     --name "$CONTAINER" \
     -e DISPLAY=host.docker.internal:0.0 \
     -p 9090:9090 \
+    ${MOUNT_ARGS[@]+"${MOUNT_ARGS[@]}"} \
     "$IMAGE" bash -ic "$LAUNCH" >/dev/null
 
 # --- 4. Wait for ROS, then follow logs --------------------------------------
