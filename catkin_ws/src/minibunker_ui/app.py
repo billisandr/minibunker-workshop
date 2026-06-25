@@ -319,7 +319,7 @@ with tab_ctrl:
             })();
             </script>
             """,
-            height=0,
+            height=1,   # st.iframe needs a positive height; 1px = invisible
         )
         st.caption("Drive with the **W A S D** keys (or click); **X** stops. "
                    "Keys set an intent that's re-published each refresh and "
