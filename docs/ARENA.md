@@ -7,9 +7,8 @@ sim transfers (the sim is deliberately a stand-in — see the note on cones).
 
 ## Footprint
 
-- A fenced area ~**6 m × 6 m** (the sim `minibunker_arena.world` uses this; the
-  visible fence model is off by default in sim — toggle with `arena/fence_enabled`
-  in `config/minibunker.yaml`).
+- A fenced area ~**6 m × 6 m** (the visible fence is off by default in sim —
+  set `arena/objects/fence/enabled: true` in `config/minibunker.yaml`).
 - Flat floor, even-ish lighting (avoid hard shadows and direct sun on the ball —
   they wreck the HSV ranges and confuse the CNN).
 - One obvious **start pose** for the rover (sim spawns it at the centre, x-forward).
@@ -19,11 +18,22 @@ sim transfers (the sim is deliberately a stand-in — see the note on cones).
 | Object | Role | Spec | Notes |
 | --- | --- | --- | --- |
 | **Green "ore" ball** | the target to approach | bright green, ~**0.20–0.30 m** dia | matte > glossy (glossy → specular highlights that read as white, not green) |
-| **Construction cones** | hazards to avoid | standard orange traffic cones, 2–4 of them | the sim uses the real `model://construction_cone` mesh (vendored offline into the image); size via `arena/cone_scale` in `config/minibunker.yaml` |
+| **Construction cones** | hazards to avoid | standard orange traffic cones, 2–4 of them | the sim uses the real `model://construction_cone` mesh (vendored offline into the image); per-cone `scale` in the `arena:` block of `config/minibunker.yaml` |
 
 The HSV defaults in `config/minibunker.yaml` assume a saturated green ball and
 orange cones; tune them live in the Streamlit **HSV ranges** tab for your actual
 objects + lighting.
+
+### Sim arena objects (single source of truth)
+
+In sim, **every** prop — ball, cones, fence — is defined in **one place**: the
+`arena:` block at the bottom of `config/minibunker.yaml`. The `.world` file holds
+only the ground, lighting and physics; `arena_setup.py` reads the block and spawns
+each object. Each entry sets its `type`, size, `pose`, `static` flag, `color`,
+`mass`, friction (`mu`) and contact (`kp`/`kd`); **inertia is auto-computed** from
+type + size + mass (override with `inertia: [ixx,iyy,izz]` only if needed). Add,
+remove, move or re-tune props by editing that block, then relaunch (with the dev
+mount, just `bash start_sim.sh` — no rebuild).
 
 ## Distance calibration (one-time, optional)
 

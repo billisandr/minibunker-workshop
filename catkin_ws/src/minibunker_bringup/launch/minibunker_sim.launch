@@ -32,8 +32,8 @@
     <arg name="use_sim_time" value="true"/>
   </include>
 
-  <!-- 2b. Arena fence + cones: spawned sequentially, sized/gated by config
-            (arena/fence_enabled, arena/cone_scale) -->
+  <!-- 2b. All arena props (ball, cones, fence) spawned sequentially from the
+            `arena:` block at the bottom of config/minibunker.yaml -->
   <node name="arena_setup" pkg="minibunker_bringup" type="arena_setup.py" output="screen"/>
 
   <!-- 3. Robot: Bunker description + our camera seam -->

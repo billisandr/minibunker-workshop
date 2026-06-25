@@ -20,19 +20,8 @@ mission:
   # excluded from this set (a cone you are following is not also its own hazard).
   hazard_items: [cone]        # subset of detector class names; may be empty
 
-arena:
-  fence_enabled: false        # sim only: spawn the 4-wall arena boundary in Gazebo
-  cone_scale: 0.3             # sim only: uniform scale on the construction_cone mesh
-  # Dynamic-cone physics (sim only). Read once by arena_setup.py at spawn, so a
-  # change needs a relaunch (with the dev mount that's just `bash start_sim.sh`).
-  # The rover plows via PlanarMove, so these mostly set how far a cone skids.
-  cone_mass: 0.5              # kg; heavier resists more than the ball, still knockable
-  cone_mu: 0.10              # ground friction; lower = skids farther (ball is 0.2)
-  # The ground contact is a spring (kp) + damper (kd). A stiff spring (high kp)
-  # with little damping (kd=1) stores energy and BOUNCES -> the cone bobs up and
-  # down in place instead of resting. Keep kp high (low sink) but add damping.
-  cone_kp: 10000             # stiffness: high = low sink (~0.5 mm) but bouncy if underdamped
-  cone_kd: 50                # damping: raise this to kill the vertical bounce (was 1)
+# (Arena objects — ball, cones, fence — are all defined together at the BOTTOM
+#  of this file under `arena:`. The Gazebo .world holds only ground+lighting.)
 
 camera:
   source: gazebo              # gazebo | picamera | webcam | video:/abs/path.mp4 | synthetic
@@ -109,3 +98,81 @@ ui:
   bridge: rosbridge          # rosbridge | sharedfile
   rosbridge_port: 9090
   refresh_hz: 10
+
+# ============================================================================
+#  ARENA OBJECTS (sim only) — the SINGLE place every prop is defined. The Gazebo
+#  .world holds only the ground plane, lighting and physics; arena_setup.py reads
+#  this block and spawns each object (one at a time). Add/remove/move props here.
+#
+#  Per object:
+#    enabled : spawn it (true) or skip (false)
+#    type    : sphere | box | cylinder | cone_mesh | fence
+#    pose    : [x, y]  or  [x, y, yaw]   (z is auto: the object rests on the floor)
+#    static  : true = immovable (fence);  false = dynamic (rover can knock it)
+#    color   : [r, g, b] 0..1  (visual; ignored by cone_mesh, which is textured)
+#    mass    : kg                          (dynamic objects only)
+#    mu      : ground friction             (lower = skids farther)
+#    kp, kd  : contact spring + damper      (high kp = low sink; raise kd to stop
+#                                            a stiff contact bouncing in place)
+#  Size keys by type: sphere{radius} · box{size:[x,y,z]} · cylinder{radius,length}
+#                     cone_mesh{scale}  · fence{span,height,thickness}
+#  INERTIA is auto-computed from type+size+mass (always consistent). Only add
+#  `inertia: [ixx, iyy, izz]` to an object to override it.
+# ============================================================================
+arena:
+  objects:
+
+    ore_ball:                 # the green "ore" target
+      enabled: true
+      type: sphere
+      radius: 0.15
+      pose: [2.6, 0.4]
+      static: false
+      color: [0.1, 0.9, 0.1]
+      mass: 0.02              # very light -> rolls freely when nudged
+      mu: 0.2                 # lowest friction of all objects
+      kp: 10000
+      kd: 1.0
+
+    cone_1:                   # orange hazard cones (real construction-cone mesh)
+      enabled: true
+      type: cone_mesh
+      scale: 3.0              # mesh scale (~0.45 m tall at scale 10)
+      pose: [1.4, -0.9]
+      static: false
+      mass: 0.05
+      mu: 0.1                 # skids when hit; resists a bit more than the ball
+      kp: 10000               # stiff (low sink)…
+      kd: 50                  # …with damping so it doesn't bob in place
+
+    cone_2:
+      enabled: true
+      type: cone_mesh
+      scale: 3.0
+      pose: [2.0, 1.1]
+      static: false
+      mass: 0.05
+      mu: 0.1
+      kp: 10000
+      kd: 50
+
+    cone_3:
+      enabled: true
+      type: cone_mesh
+      scale: 3.0
+      pose: [3.2, -1.4]
+      static: false
+      mass: 0.05
+      mu: 0.1
+      kp: 10000
+      kd: 50
+
+    fence:                    # 4-wall boundary ring; off by default
+      enabled: false
+      type: fence
+      span: 6.0               # inner span (m)
+      height: 0.5
+      thickness: 0.1
+      pose: [0.0, 0.0]
+      static: true
+      color: [0.6, 0.45, 0.12]

@@ -2,17 +2,14 @@
 <!-- ==========================================================================
      minibunker_arena.world — self-contained Gazebo Classic world (plan.md §8.5).
 
-     Cones and the fence are NOT baked into this static world -- both are spawned
-     at launch by arena_setup.py (sequentially, via /gazebo/spawn_sdf_model), so
-     their presence/size stays config-driven (arena/fence_enabled, arena/cone_scale
-     in minibunker.yaml) and spawning one model at a time avoids a real Gazebo/Ogre
-     race seen when 3 copies of the same mesh+texture load concurrently off a
-     single static <include>. Cones use the real model://construction_cone mesh,
-     vendored into the image at build time under ~/.gazebo/models (docker/Dockerfile)
-     so this still runs with zero network access at sim runtime. The green "ore"
-     ball stays an SDF primitive (a bright-green sphere) since no equivalent
-     off-the-shelf mesh is needed there. All props are static so they stay put
-     under the kinematic planar-move drive.
+     This world holds ONLY the ground plane, lighting and physics. EVERY prop
+     (ball, cones, fence) is defined in one place — the `arena:` block at the
+     bottom of config/minibunker.yaml — and spawned at launch by arena_setup.py
+     (one at a time, via /gazebo/spawn_sdf_model, to dodge a Gazebo/Ogre race
+     when several identical cone meshes load at once). Cones use the real
+     model://construction_cone mesh, vendored into the image at build time under
+     ~/.gazebo/models (docker/Dockerfile), so the sim runs with zero network
+     access. See docs/ARENA.md for the object schema.
      ========================================================================== -->
 <sdf version="1.6">
   <world name="minibunker_arena">
@@ -31,44 +28,9 @@
       </link>
     </model>
 
-    <!-- Fenced boundary is NOT baked into this world. It is spawned at launch
-         by arena_setup.py iff config key arena/fence_enabled is true (default
-         false) -- see minibunker_bringup/scripts/arena_setup.py, which holds
-         the exact same four-wall SDF that used to live here. -->
-
-    <!-- green "ore" ball: DYNAMIC + very light, so the rover knocks it away and
-         it rolls freely (was <static>true</static>, an immovable brick).
-         Sphere inertia MUST match the mass or it won't roll freely:
-         I = 2/5 * m * r^2 = 2/5 * 0.02 * 0.15^2 = 0.00018. -->
-    <model name="ore_ball">
-      <static>false</static>
-      <pose>2.6 0.4 0.15 0 0 0</pose>
-      <link name="link">
-        <inertial>
-          <mass>0.02</mass>
-          <inertia>
-            <ixx>0.00018</ixx><iyy>0.00018</iyy><izz>0.00018</izz>
-            <ixy>0</ixy><ixz>0</ixz><iyz>0</iyz>
-          </inertia>
-        </inertial>
-        <collision name="c">
-          <geometry><sphere><radius>0.15</radius></sphere></geometry>
-          <surface>
-            <!-- LOWEST friction of all objects -> least rolling resistance, so
-                 the ball rolls freely (cones use higher mu). Light damping keeps
-                 a low-mass body stable on contact. -->
-            <friction><ode><mu>0.2</mu><mu2>0.2</mu2></ode></friction>
-            <contact><ode><kp>100000.0</kp><kd>1.0</kd></ode></contact>
-          </surface>
-        </collision>
-        <visual name="v">
-          <geometry><sphere><radius>0.15</radius></sphere></geometry>
-          <material><ambient>0.05 0.6 0.05 1</ambient><diffuse>0.1 0.9 0.1 1</diffuse><emissive>0.0 0.2 0.0 1</emissive></material>
-        </visual>
-      </link>
-    </model>
-
-    <!-- "cone" obstacles: spawned by arena_setup.py (see top-of-file note). -->
+    <!-- All props (ball, cones, fence) are spawned at launch by arena_setup.py
+         from the `arena:` block at the bottom of config/minibunker.yaml. Nothing
+         object-related is baked into this world. -->
 
     <physics type="ode"><max_step_size>0.004</max_step_size><real_time_factor>1.0</real_time_factor></physics>
   </world>
