@@ -218,8 +218,12 @@ the rover drives for `behavior/teleop/timeout_ms` then stops unless re-pressed.
    the Pi.
 6. On the Pi: repo is **private** (git needs a PAT / `gh auth login`, not the
    account password). Use **apt** numpy/OpenCV, not pip (piwheels numpy ⇒
-   `libopenblas.so.0` missing + shadows the apt build); `test_fsm` 7/7 first try.
-7. **Deferred:** real-motor drive until a CAN adapter is wired (§4 table).
+   `libopenblas.so.0` missing + shadows the apt build).
+7. **All hardware-free tests pass on `raspberrypi2`** (Pi 5, Bookworm 64-bit):
+   `test_fsm` 7/7, `test_detector` 4/4, `test_bunker_can` 5/5 **including the
+   real `vcan0` loopback** — so the Bunker protocol-v2 frames (0x111/0x421/0x211)
+   are validated on an actual socketcan bus. System libs: numpy 1.24.2, cv2 4.6.0.
+8. **Deferred:** real-motor drive until a CAN adapter is wired (§4 table).
 
 ## 8. Open items / next steps
 
