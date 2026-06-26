@@ -141,14 +141,16 @@ python tests/test_bunker_can.py        # now the vcan0 loopback layer runs too
 python run.py --no-can --save-frames /tmp/mbframes   # inspect annotated frames
 ```
 
-Status on `raspberrypi2` (2026-06-26): **camera present** (`/dev/video0` + ISP
-nodes), **no CAN adapter wired yet** (`eth0 lo wlan0` only — no `can0`). So:
+Status on `raspberrypi2` (2026-06-26): camera = **Raspberry Pi Camera Module v2
+(IMX219)** via libcamera/picamera2 at 640×480, **no CAN adapter wired yet**
+(`eth0 lo wlan0` only — no `can0`). All hardware-free checks ran green:
 
-| Test | Now | Needs |
+| Test | Now | Result |
 | --- | --- | --- |
-| FSM / detector / CAN-encode unit tests | ✅ | nothing |
-| vcan0 loopback (frame on a real bus) | ✅ | `vcan` module (in-kernel) |
-| Camera capture + HSV on real frames | ✅ | the Pi camera (present) |
+| `test_fsm` (FSM safety + transitions) | ✅ | 7/7 |
+| `test_detector` (HSV + perception_state) | ✅ | 4/4 |
+| `test_bunker_can` incl. **vcan0 loopback** | ✅ | 5/5, `[ok] vcan0 loopback` |
+| Camera capture via `run.py --no-can` | ✅ | IMX219/picamera2, 640×480 frames, clean DISARMED→STANDBY |
 | **Armed `run.py` actually moving wheels** | ⛔ deferred | **a CAN adapter + the Bunker** |
 
 ---
@@ -223,14 +225,18 @@ the rover drives for `behavior/teleop/timeout_ms` then stops unless re-pressed.
    `test_fsm` 7/7, `test_detector` 4/4, `test_bunker_can` 5/5 **including the
    real `vcan0` loopback** — so the Bunker protocol-v2 frames (0x111/0x421/0x211)
    are validated on an actual socketcan bus. System libs: numpy 1.24.2, cv2 4.6.0.
-8. **Deferred:** real-motor drive until a CAN adapter is wired (§4 table).
+8. Camera validated: `run.py --no-can` and a 30-frame diagnostic both ran the
+   IMX219 via picamera2 at 640×480 (brightness ~126, `captured 30/30`). HSV fires
+   green/cone boxes when a coloured object is in view (empty otherwise).
+9. **Deferred:** real-motor drive until a CAN adapter is wired (§4 table).
 
 ## 8. Open items / next steps
 
 - **Wire a CAN adapter** (USB-CAN or MCP2515 HAT), `candump` the Bunker, then the
-  first **armed, low-cap** drive test in the fenced arena.
-- **Camera tuning:** confirm `/dev/video0` is the Pi Camera (not an ISP node);
-  set `camera/source` + re-check HSV ranges under arena lighting.
+  first **armed, low-cap** drive test in the fenced arena. This is the only
+  remaining gate to a full bring-up — everything upstream of CAN is validated.
+- **Camera:** ✅ IMX219 via picamera2 confirmed. Remaining is HSV-range tuning
+  under the actual arena lighting (verify a green ball / orange cone boxes).
 - **Autostart (optional):** a `systemd` unit for `run.py` once drive is trusted.
 - **CNN:** drop a trained `.onnx` in and set `detector/backend: cnn` (HSV is the
   working default).
