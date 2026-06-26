@@ -145,6 +145,7 @@ def main():
     if save_dir:
         os.makedirs(save_dir, exist_ok=True)
     frame_i = 0
+    last_print = 0.0       # headless telemetry throttle
 
     print("[run] DISARMED. Keys (+Enter): a=ARM d=DISARM q=quit | "
           "teleop (mission=none): w/s=fwd/back j/l=turn x=stop")
@@ -200,6 +201,18 @@ def main():
                                            target_cls, state)
                 cv2.imwrite(os.path.join(save_dir, f"f{frame_i:05d}.jpg"), annotated)
             frame_i += 1
+
+            # headless: throttled telemetry (~1 Hz) so an SSH drive is observable
+            if headless and (t0 - last_print) >= 1.0:
+                last_print = t0
+                extra = ""
+                if bunker is not None:
+                    s = bunker.state
+                    extra = (f" | batt={s.battery_voltage:.1f}V ctrl_mode={s.control_mode}"
+                             f" vstate={s.vehicle_state}"
+                             f"{' ESTOP!' if s.estop_engaged else ''}"
+                             f" actual_v={s.actual_linear:+.2f}")
+                print(f"[{state:8s}] armed={kb.armed} cmd v={lin:+.2f} w={ang:+.2f}{extra}")
 
             # keep the loop at rate_hz (also paces the CAN motion frames)
             dt = time.monotonic() - t0
