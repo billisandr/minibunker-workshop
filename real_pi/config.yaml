@@ -1,0 +1,86 @@
+# ============================================================================
+#  real_pi/config.yaml — the ONE config for the NATIVE Pi stack.
+#
+#  This is a flattened, ROS-free subset of catkin_ws/.../minibunker.yaml, plus a
+#  `can:` block the sim never needs. Keys mirror the sim names so the lifted
+#  detector/FSM logic reads the same knobs. Edit this file on the Pi to tune.
+#
+#  Loaded by minibunker_real/config.py; access with dotted keys, e.g.
+#      cfg.get("behavior/limits/max_linear")
+# ============================================================================
+
+mission:
+  follow_item: none           # none | ball | cone   (none -> teleop only)
+  hazard_items: [cone]        # classes to AVOID; followed class auto-excluded
+
+camera:
+  source: picamera            # picamera | webcam | video:/abs/path.mp4 | synthetic
+  v4l2_device: /dev/video0    # used for webcam / picamera V4L2 fallback
+  width: 640
+  height: 480
+  fps: 30
+  flip_horizontal: false
+
+detector:
+  backend: hsv                # hsv | cnn
+  cnn:
+    weights: ""               # path to .onnx (leave empty -> empty detections)
+    runtime: onnxruntime      # onnxruntime | ultralytics
+    conf_threshold: 0.45
+    iou_threshold: 0.50
+    class_names: [green_ball, cone]
+    input_size: 416
+  hsv:
+    green_ball:
+      lower: [40, 70, 40]
+      upper: [85, 255, 255]
+      min_area: 800
+      close_ksize: 5
+      open_ksize: 5
+    cone:
+      lower: [5, 120, 90]
+      upper: [25, 255, 255]
+      min_area: 1200
+      close_ksize: [61, 9]
+      open_ksize: 3
+
+behavior:
+  arm_on_start: false         # SAFETY: boot DISARMED (no motion until ARMed)
+  rate_hz: 20.0               # main loop + CAN motion-command rate
+  search:
+    scan_angular_speed: 0.5
+  approach:
+    steer_gain: 0.8
+    forward_speed: 0.25
+    collect_bbox_frac: 0.45
+  collect:
+    pause_sec: 5.0
+    turn_speed: 0.9
+    turn_sec_min: 2.5
+    turn_sec_max: 4.0
+    away_speed: 0.25
+    away_sec_min: 1.5
+    away_sec_max: 3.0
+  avoid:
+    cone_danger_frac: 0.35
+    backoff_speed: -0.15
+    turn_speed: 0.6
+  limits:
+    max_linear: 0.4           # SOFT cap (m/s). Final clamp = min(this, can/hw_max_linear)
+    max_angular: 1.0          # SOFT cap (rad/s). Final clamp = min(this, can/hw_max_angular)
+    lost_frames: 15
+  teleop:
+    timeout_ms: 400           # watchdog: zero motion if no teleop within this window
+    linear_speed: 0.25
+    angular_speed: 0.8
+
+can:
+  channel: can0               # socketcan interface (vcan0 for hardware-free testing)
+  interface: socketcan
+  bitrate: 500000             # informational; the host `ip link` sets the real bitrate
+  motion_id: 0x111            # CAN_MSG_MOTION_COMMAND_ID (AgileX protocol v2)
+  ctrl_mode_id: 0x421         # CAN_MSG_CTRL_MODE_CONFIG_ID
+  enable_can_mode: true       # send CONTROL_MODE_CAN (0x01) on ARM so the base accepts CAN
+  hw_max_linear: 1.5          # Bunker Mini HW ceiling (m/s) — hard safety clamp
+  hw_max_angular: 0.7853      # Bunker Mini HW ceiling (rad/s) — hard safety clamp
+  command_hz: 50.0            # rate to (re)send motion frames so the base doesn't time out

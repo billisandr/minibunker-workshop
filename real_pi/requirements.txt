@@ -1,0 +1,20 @@
+# real_pi — native (no-ROS, no-Docker) MiniBunker stack for the Raspberry Pi 5.
+#
+# Install into a venv on the Pi:
+#   python3 -m venv ~/mb-venv --system-site-packages   # --system-site-packages
+#                                                       # so picamera2 (apt) is visible
+#   source ~/mb-venv/bin/activate
+#   pip install -r requirements.txt
+#
+# picamera2 is NOT pip-installed here — on Raspberry Pi OS it ships via apt
+# (python3-picamera2) tied to the system libcamera. The venv is created with
+# --system-site-packages so the native camera path can import it. If picamera2
+# is absent the camera falls back to a plain V4L2 cv2.VideoCapture.
+numpy>=1.24
+opencv-python>=4.8        # cv_bridge is NOT used here; this is plain OpenCV
+python-can>=4.0           # socketcan driver for the Bunker CAN bus
+PyYAML>=6.0
+
+# Optional CNN runtime (HSV is the zero-dependency default). Uncomment one:
+# onnxruntime>=1.16        # arm64 wheels exist; default CNN runtime
+# ultralytics>=8.0         # heavy; pulls torch
