@@ -94,19 +94,31 @@ Key facts:
 ## 3. One-time Pi setup
 
 ```bash
-# 3.1 system deps (camera + CAN tooling)
+# 3.1 system deps. numpy/OpenCV/PyYAML/picamera2 come from APT (NOT pip — see the
+# libopenblas note below), plus the camera + CAN tooling.
 sudo apt update
-sudo apt install -y python3-venv python3-picamera2 can-utils
+sudo apt install -y python3-venv python3-numpy python3-opencv python3-yaml \
+                    python3-picamera2 can-utils
 
-# 3.2 get the code (this branch)
+# 3.2 get the code (this branch). The repo is PRIVATE -> git over HTTPS needs a
+# Personal Access Token (classic, 'repo' scope) as the password, or `gh auth
+# login` first. Your GitHub *account password* will be rejected.
 cd ~ && git clone --recurse-submodules https://github.com/billisandr/minibunker-workshop.git
 cd minibunker-workshop && git checkout real-pi-native
 
-# 3.3 python venv (system-site so apt's picamera2 is importable)
+# 3.3 python venv. --system-site-packages so apt's numpy/cv2/picamera2 are
+# importable; pip then only adds python-can.
 python3 -m venv ~/mb-venv --system-site-packages
 source ~/mb-venv/bin/activate
 pip install -r real_pi/requirements.txt
 ```
+
+> **Do NOT `pip install numpy` / `opencv-python` on the Pi.** The piwheels numpy
+> wheel needs `libopenblas.so.0` and, installed into the venv, shadows the
+> working apt build -> `ImportError: libopenblas.so.0: cannot open shared object
+> file`. If you already did, recover with `pip uninstall -y numpy opencv-python`
+> (the `--system-site-packages` venv then falls back to the apt builds:
+> numpy 1.24.x, cv2 4.6.x).
 
 ---
 
@@ -204,7 +216,10 @@ the rover drives for `behavior/teleop/timeout_ms` then stops unless re-pressed.
 5. Tests: 16/16 pure-logic pass on the dev laptop + a 60-frame end-to-end
    pipeline smoke (synthetic camera → HSV → pack → FSM). vcan loopback added for
    the Pi.
-6. **Deferred:** real-motor drive until a CAN adapter is wired (§4 table).
+6. On the Pi: repo is **private** (git needs a PAT / `gh auth login`, not the
+   account password). Use **apt** numpy/OpenCV, not pip (piwheels numpy ⇒
+   `libopenblas.so.0` missing + shadows the apt build); `test_fsm` 7/7 first try.
+7. **Deferred:** real-motor drive until a CAN adapter is wired (§4 table).
 
 ## 8. Open items / next steps
 

@@ -6,14 +6,21 @@
 #   source ~/mb-venv/bin/activate
 #   pip install -r requirements.txt
 #
-# picamera2 is NOT pip-installed here — on Raspberry Pi OS it ships via apt
-# (python3-picamera2) tied to the system libcamera. The venv is created with
-# --system-site-packages so the native camera path can import it. If picamera2
-# is absent the camera falls back to a plain V4L2 cv2.VideoCapture.
-numpy>=1.24
-opencv-python>=4.8        # cv_bridge is NOT used here; this is plain OpenCV
+# IMPORTANT (Raspberry Pi OS): numpy, OpenCV, PyYAML and picamera2 come from
+# APT, not pip, and the venv is created with --system-site-packages so they are
+# importable:
+#     sudo apt install -y python3-numpy python3-opencv python3-yaml \
+#                         python3-picamera2 can-utils
+#     python3 -m venv ~/mb-venv --system-site-packages
+# Do NOT `pip install numpy`/`opencv-python` on the Pi: the piwheels numpy wheel
+# needs libopenblas and, installed into the venv, SHADOWS the working apt build
+# (-> "libopenblas.so.0: cannot open shared object file"). picamera2 is likewise
+# apt-only (tied to the system libcamera); absent it, the camera falls back to
+# a plain V4L2 cv2.VideoCapture.
+#
+# So on the Pi, pip only needs python-can below. (On a non-Pi dev box without
+# system numpy/cv2, also `pip install numpy opencv-python PyYAML`.)
 python-can>=4.0           # socketcan driver for the Bunker CAN bus
-PyYAML>=6.0
 
 # Optional CNN runtime (HSV is the zero-dependency default). Uncomment one:
 # onnxruntime>=1.16        # arm64 wheels exist; default CNN runtime
