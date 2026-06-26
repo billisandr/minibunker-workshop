@@ -14,8 +14,9 @@
 #      (the Bunker is differential/tracked: lateral & steering stay 0; the base
 #       firmware does the track mixing from linear+angular, so no v0 track-width
 #       mixing is needed here.)
-#  RX  SYSTEM_STATE      id=0x211  byte0 = control_mode, [2:4] battery*0.1 (BE),
-#                                          [4:6] error_code (BE)
+#  RX  SYSTEM_STATE      id=0x211  byte0 = vehicle_state (0 NORMAL/1 ESTOP/2 EXC),
+#                                  byte1 = control_mode (0 STANDBY/1 CAN),
+#                                  [2:4] battery*0.1 (BE), [4:6] error_code (BE)
 #  RX  MOTION_STATE      id=0x221  [0:2] actual linear*1000, [2:4] actual angular*1000
 #
 #  SAFETY: nothing moves unless send_motion() is called. stop() zeroes motion and
@@ -41,6 +42,11 @@ MOTION_STATE_ID = 0x221
 
 CONTROL_MODE_STANDBY = 0x00
 CONTROL_MODE_CAN = 0x01
+
+# vehicle_state (SystemState byte0) — agilex_types.h
+VEHICLE_STATE_NORMAL = 0x00
+VEHICLE_STATE_ESTOP = 0x01
+VEHICLE_STATE_EXCEPTION = 0x02
 
 # Bunker Mini hardware ceilings (ugv_sdk/.../bunker_params.hpp). Hard safety clamp.
 HW_MAX_LINEAR = 1.5      # m/s
@@ -75,12 +81,17 @@ def encode_ctrl_mode(mode: int) -> bytes:
 
 @dataclass
 class BunkerState:
+    vehicle_state: int = -1     # 0 NORMAL, 1 ESTOP, 2 EXCEPTION ; -1 = not yet heard
     control_mode: int = -1      # 0 standby, 1 CAN, ... ; -1 = not yet heard
     battery_voltage: float = 0.0
     error_code: int = 0
     actual_linear: float = 0.0
     actual_angular: float = 0.0
     last_rx: float = 0.0        # monotonic timestamp of the last decoded frame
+
+    @property
+    def estop_engaged(self) -> bool:
+        return self.vehicle_state == VEHICLE_STATE_ESTOP
 
 
 class BunkerCAN:
@@ -142,7 +153,8 @@ class BunkerCAN:
     def _decode(self, msg):
         data = bytes(msg.data)
         if msg.arbitration_id == SYSTEM_STATE_ID and len(data) >= 6:
-            self.state.control_mode = data[0]
+            self.state.vehicle_state = data[0]
+            self.state.control_mode = data[1]
             self.state.battery_voltage = struct.unpack(">H", data[2:4])[0] * 0.1
             self.state.error_code = struct.unpack(">H", data[4:6])[0]
             self.state.last_rx = time.monotonic()

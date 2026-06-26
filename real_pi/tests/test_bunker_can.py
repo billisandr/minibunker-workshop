@@ -89,10 +89,13 @@ def test_vcan_loopback():
         assert msg is not None and msg.arbitration_id == CTRL_MODE_CONFIG_ID
         assert msg.data[0] == CONTROL_MODE_CAN
 
-        # inject a SYSTEM_STATE frame and confirm BunkerCAN decodes it
-        from minibunker_real.bunker_can import SYSTEM_STATE_ID
+        # inject a SYSTEM_STATE frame and confirm BunkerCAN decodes it.
+        # layout: byte0 vehicle_state, byte1 control_mode, [2:4] batt, [4:6] err
+        from minibunker_real.bunker_can import (
+            SYSTEM_STATE_ID, VEHICLE_STATE_ESTOP)
         batt = struct.pack(">H", 254)        # 25.4 V
-        payload = bytes([CONTROL_MODE_CAN, 0]) + batt + b"\x00\x00\x00\x00"
+        err = struct.pack(">H", 0x0080)
+        payload = bytes([VEHICLE_STATE_ESTOP, CONTROL_MODE_CAN]) + batt + err + b"\x00\x00"
         listener.send(can.Message(arbitration_id=SYSTEM_STATE_ID,
                                   data=payload[:8], is_extended_id=False))
         st = None
@@ -100,9 +103,11 @@ def test_vcan_loopback():
             st = bunker.poll(timeout=0.2)
             if st.control_mode == CONTROL_MODE_CAN:
                 break
+        assert st.vehicle_state == VEHICLE_STATE_ESTOP and st.estop_engaged
         assert st.control_mode == CONTROL_MODE_CAN
+        assert st.error_code == 0x0080
         assert abs(st.battery_voltage - 25.4) < 0.05
-        print("[ok] vcan0 loopback: motion, ctrl-mode, state decode")
+        print("[ok] vcan0 loopback: motion, ctrl-mode, vehicle_state+battery decode")
     finally:
         bunker.bus.shutdown()
         listener.shutdown()

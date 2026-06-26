@@ -222,10 +222,11 @@ def _draw_status(img, armed, lin, ang, state):
     cv2.putText(img, txt, (8, img.shape[0] - 12), cv2.FONT_HERSHEY_SIMPLEX,
                 0.6, colour, 2)
     if state is not None and state.control_mode >= 0:
-        cv2.putText(img, "batt=%.1fV mode=%d err=%d" % (
-            state.battery_voltage, state.control_mode, state.error_code),
+        estop = " ESTOP" if state.estop_engaged else ""
+        cv2.putText(img, "batt=%.1fV mode=%d err=%d%s" % (
+            state.battery_voltage, state.control_mode, state.error_code, estop),
             (8, img.shape[0] - 36), cv2.FONT_HERSHEY_SIMPLEX, 0.5,
-            (255, 255, 0), 1)
+            (0, 165, 255) if estop else (255, 255, 0), 1)
 
 
 if __name__ == "__main__":
