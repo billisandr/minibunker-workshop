@@ -151,7 +151,9 @@ Status on `raspberrypi2` (2026-06-26): camera = **Raspberry Pi Camera Module v2
 | `test_detector` (HSV + perception_state) | ✅ | 4/4 |
 | `test_bunker_can` incl. **vcan0 loopback** | ✅ | 5/5, `[ok] vcan0 loopback` |
 | Camera capture via `run.py --no-can` | ✅ | IMX219/picamera2, 640×480 frames, clean DISARMED→STANDBY |
-| **Armed `run.py` actually moving wheels** | ⛔ deferred | **a CAN adapter + the Bunker** |
+| Live CAN to the real Bunker (`can0` wired) | ✅ | candump + driver decode: batt 25.6 V, vstate=ESTOP, ctrl_mode flips 0→1 on ARM |
+| **Autonomous follow dry-run, e-stop ENGAGED** | ✅ | armed+mission=ball: SEARCH→APPROACH, `w` steers/flips with the ball, `actual_v=0` (no motion) |
+| **Armed follow with e-stop RELEASED (real motion)** | ⛔ deferred | first low-cap drive in the fenced arena |
 
 ---
 
@@ -228,7 +230,14 @@ the rover drives for `behavior/teleop/timeout_ms` then stops unless re-pressed.
 8. Camera validated: `run.py --no-can` and a 30-frame diagnostic both ran the
    IMX219 via picamera2 at 640×480 (brightness ~126, `captured 30/30`). HSV fires
    green/cone boxes when a coloured object is in view (empty otherwise).
-9. **Deferred:** real-motor drive until a CAN adapter is wired (§4 table).
+9. **CAN wired + read-only bring-up** caught a `SystemState` decode bug (byte0 is
+   `vehicle_state`, not `control_mode`) — fixed before any motion. Real frame
+   `01 00 01 00 00 80` = vehicle_state ESTOP, control_mode STANDBY, batt 25.6 V.
+10. **Autonomous follow dry-run with the e-stop ENGAGED**: armed + mission=ball,
+    the stack ran SEARCH→APPROACH, steering (`w`) tracked the ball and flipped
+    sign across sides, `ctrl_mode` flipped 0→1 (base accepted CAN), `actual_v=0`
+    and `vstate=ESTOP` throughout — full pipeline validated, zero motion.
+11. **Deferred:** real motion — release the e-stop for the first low-cap drive.
 
 ## 8. Open items / next steps
 
