@@ -1,4 +1,4 @@
-# MiniBunker Workshop
+# AgileX MiniBunker 2.0 Workshop
 
 A Space Summer School station: an AgileX **Bunker Mini 2.0** tracked rover that uses a
 **Raspberry Pi 5 + Pi Camera** and a small **CNN** to recognise a **green ball** (the
@@ -61,6 +61,7 @@ catkin_ws/src/
 ├── ugv_gazebo_sim/          (submodule) Bunker / Bunker-Mini Gazebo description
 ├── bunker_ros/              (submodule) real driver: bunker_base/bringup/msgs
 └── ugv_sdk/                 (submodule) C++ CAN layer
+real_pi/                     native (no-Docker/ROS) Pi station — see docs/REAL_PI_NATIVE.md
 docker/   start_sim.sh   start_real.sh   training/   docs/
 ```
 
@@ -73,7 +74,8 @@ docker/   start_sim.sh   start_real.sh   training/   docs/
 ## Docs
 
 - [docs/QUICKSTART.md](docs/QUICKSTART.md) — run sim / hardware-free / UI / real
-- [docs/HARDWARE_SETUP.md](docs/HARDWARE_SETUP.md) — Pi 5 + camera + CAN
+- [docs/HARDWARE_SETUP.md](docs/HARDWARE_SETUP.md) — Pi 5 + camera + CAN (Docker/ROS path)
+- [docs/REAL_PI_NATIVE.md](docs/REAL_PI_NATIVE.md) — **native (no-Docker, no-ROS) Pi bring-up**; the `real_pi/` stack, CAN protocol, full test walkthrough + real-Bunker dry-run results
 - [docs/TRAINING.md](docs/TRAINING.md) — Roboflow → YOLOv8n → export
 - [docs/ARENA.md](docs/ARENA.md) — physical arena + object spec
 - [plan.md](plan.md) — full design + phased roadmap + open decisions (§15)
@@ -82,7 +84,9 @@ docker/   start_sim.sh   start_real.sh   training/   docs/
 
 1. Build the image + bring the sim up (`start_sim.sh`); fix any submodule build issues.
 2. Train the CNN ([docs/TRAINING.md](docs/TRAINING.md)) and validate it in sim.
-3. Real-robot bring-up on the Pi ([docs/HARDWARE_SETUP.md](docs/HARDWARE_SETUP.md)).
+3. Real-robot bring-up on the Pi — **native path done & validated to the e-stop dry-run**
+   ([docs/REAL_PI_NATIVE.md](docs/REAL_PI_NATIVE.md)); first real drive is the last gate.
+   (Docker/ROS alternative: [docs/HARDWARE_SETUP.md](docs/HARDWARE_SETUP.md).)
 4. Phase 7 docs: participant handout + instructor cards (HTML, house style) — best done
    once the sim is validated so they can carry real screenshots.
 

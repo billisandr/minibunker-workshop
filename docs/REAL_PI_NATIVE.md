@@ -2,12 +2,18 @@
 
 The Phase-C real-robot path, run as a **single native Python process** on the Pi
 instead of the ROS-in-Docker stack. This is plan.md **§9.4** ("documented no-ROS
-fallback") promoted to the primary real-deployment path. Written **2026-06-26**.
+fallback") promoted to the primary real-deployment path. Written **2026-06-26**;
+includes the real-hardware bring-up results captured the same day.
 
 > The Docker/ROS path (`start_real.sh`, `docs/HARDWARE_SETUP.md`) still exists and
 > is unchanged. This document is the **alternative** chosen for the actual Pi:
 > lighter, faster to iterate, no arm64 image build. Trade-off: **no sim parity**
 > and the drive/CAN layer is re-implemented (see §2).
+
+**Contents:** §0 decision · §1 stack · §2 CAN driver · §3 one-time setup ·
+§4 hardware-free tests (with outputs) · §5 live-CAN bring-up (worked example) ·
+§6 autonomous-follow dry-run, e-stop engaged (worked example) · §7 running +
+first real drive · §8 viewing frames & video · §9 status · §10 log · §11 open.
 
 ---
 
@@ -34,9 +40,9 @@ layer is re-implemented as a direct CAN driver (§2) instead of `bunker_base`.
 
 ```
 real_pi/
-  run.py              # the station: ONE loop, ARM gate, watchdog, e-stop
+  run.py              # the station: ONE loop, ARM gate, watchdog, e-stop, viz/record
   config.yaml         # ROS-free subset of minibunker.yaml + a can: block
-  requirements.txt    # numpy, opencv-python, python-can, PyYAML
+  requirements.txt    # python-can only (numpy/OpenCV/PyYAML come from apt — see §3)
   minibunker_real/
     config.py         # dotted-key YAML loader (replaces rospy.get_param)
     camera.py         # picamera2 -> V4L2 -> video/synthetic frame source
@@ -75,8 +81,14 @@ the knob names in `real_pi/config.yaml` match `minibunker.yaml`.
 | --- | --- | --- | --- |
 | TX | **Motion command** | `0x111` | `int16 BE ×1000`: `[0:2]` linear m/s, `[2:4]` angular rad/s, `[4:6]` lateral=0, `[6:8]` steering=0 |
 | TX | **Ctrl-mode config** | `0x421` | `byte0` = control mode: `0x01` = CAN, `0x00` = STANDBY; rest reserved |
-| RX | **System state** | `0x211` | `byte0` mode, `[2:4]` battery×0.1 (BE), `[4:6]` error code |
+| RX | **System state** | `0x211` | `byte0` **vehicle_state** (0 NORMAL / 1 ESTOP / 2 EXCEPTION), `byte1` **control_mode** (0 STANDBY / 1 CAN), `[2:4]` battery×0.1 (BE), `[4:6]` error_code (BE) |
 | RX | **Motion state** | `0x221` | `[0:2]` actual linear×1000, `[2:4]` actual angular×1000 |
+
+> **Decode gotcha (caught on the real robot):** byte0 of `0x211` is
+> `vehicle_state`, **not** `control_mode` (control_mode is byte1). The first cut
+> read byte0 as the mode and so reported "mode=1" when the rover was actually
+> e-stopped (`vehicle_state=ESTOP=1`). Fixed in `bunker_can.py`; `BunkerState`
+> now exposes `vehicle_state`, `control_mode`, and an `estop_engaged` helper.
 
 Key facts:
 - The Bunker is **differential/tracked**, so lateral & steering stay 0 and the
@@ -122,91 +134,248 @@ pip install -r real_pi/requirements.txt
 
 ---
 
-## 4. Tests (what we can validate, and what needs hardware)
+## 4. Hardware-free tests (run these first)
 
-From `real_pi/` with the venv active:
+From `real_pi/` with the venv active. None of these need the robot.
 
+### 4.1 Pure-logic unit tests
 ```bash
-# pure-logic (no hardware): FSM + detector + CAN frame encoding
 python tests/test_fsm.py
 python tests/test_detector.py
-python tests/test_bunker_can.py        # layer-1 encode/decode always runs
+python tests/test_bunker_can.py     # layer-1 frame encode/decode always runs
+```
+Expected (validated on `raspberrypi2`, 2026-06-26):
+```
+# test_fsm.py
+PASS test_approach_steers_toward_target
+... 7/7 passed
+# test_detector.py
+PASS test_hsv_finds_green_ball
+... 4/4 passed
+# test_bunker_can.py   (vcan0 absent -> the loopback layer skips)
+PASS test_motion_is_big_endian_x1000
+[skip] vcan0 / python-can not available
+... 5/5 passed
+```
 
-# CAN loopback WITHOUT the robot — virtual CAN:
+### 4.2 CAN loopback WITHOUT the robot (virtual CAN)
+```bash
 sudo modprobe vcan
 sudo ip link add dev vcan0 type vcan && sudo ip link set up vcan0
-python tests/test_bunker_can.py        # now the vcan0 loopback layer runs too
-
-# perception on the real camera, no motion, no CAN bus:
-python run.py --no-can --save-frames /tmp/mbframes   # inspect annotated frames
+python tests/test_bunker_can.py     # now the vcan0 loopback layer runs too
+```
+Expected — the loopback line replaces the skip, proving the frames are correct on
+a real socketcan bus:
+```
+[ok] vcan0 loopback: motion, ctrl-mode, vehicle_state+battery decode
+5/5 passed
 ```
 
-Status on `raspberrypi2` (2026-06-26): camera = **Raspberry Pi Camera Module v2
-(IMX219)** via libcamera/picamera2 at 640×480, **no CAN adapter wired yet**
-(`eth0 lo wlan0` only — no `can0`). All hardware-free checks ran green:
-
-| Test | Now | Result |
-| --- | --- | --- |
-| `test_fsm` (FSM safety + transitions) | ✅ | 7/7 |
-| `test_detector` (HSV + perception_state) | ✅ | 4/4 |
-| `test_bunker_can` incl. **vcan0 loopback** | ✅ | 5/5, `[ok] vcan0 loopback` |
-| Camera capture via `run.py --no-can` | ✅ | IMX219/picamera2, 640×480 frames, clean DISARMED→STANDBY |
-| Live CAN to the real Bunker (`can0` wired) | ✅ | candump + driver decode: batt 25.6 V, vstate=ESTOP, ctrl_mode flips 0→1 on ARM |
-| **Autonomous follow dry-run, e-stop ENGAGED** | ✅ | armed+mission=ball: SEARCH→APPROACH, `w` steers/flips with the ball, `actual_v=0` (no motion) |
-| **Armed follow with e-stop RELEASED (real motion)** | ⛔ deferred | first low-cap drive in the fenced arena |
+### 4.3 Real camera, no motion, no CAN bus
+```bash
+python run.py --no-can --save-frames /tmp/mbframes   # Ctrl-C / 'q'+Enter to stop
+```
+This runs camera → detector → FSM headless and writes annotated frames (every 5th)
+to `/tmp/mbframes`. Confirmed output on the IMX219 (Pi Camera v2):
+```
+[camera] picamera2 (libcamera)
+... 640x480 frames, brightness ~126, clean DISARMED -> STANDBY on exit
+```
+(View the frames: see **§8**.)
 
 ---
 
-## 5. CAN bring-up (when the adapter arrives)
+## 5. Live-CAN bring-up — worked example (e-stop ENGAGED)
 
-The Bunker speaks CAN at **500 kbps** on `can0`. Pick the adapter:
+The Bunker speaks CAN at **500 kbps** on `can0`. Keep the **e-stop engaged** for
+everything in this section — these are read-only checks; nothing should move.
+
+### 5.1 Interface up + raw sanity
+```bash
+ip -br link show | grep -i can          # confirm a can0 appeared
+# bring it up if it isn't already (a CAN HAT may auto-config):
+sudo ip link set can0 up type can bitrate 500000
+candump can0                            # Ctrl-C after you see frames
+```
+On the real Bunker you should see a steady stream — these are the actual IDs we
+saw (system/motion/RC/odometry/actuator state):
+```
+can0  211   [8]  01 00 01 00 00 80 00 00     # system state (see decode below)
+can0  221   [8]  00 00 00 00 00 00 00 00     # motion state (actual vel = 0)
+can0  241   [8]  AA 00 00 00 00 00 00 61     # RC state (counter increments)
+can0  311   [8]  00 00 00 00 00 00 00 00     # odometry
+```
+
+### 5.2 Confirm the driver decodes the robot (no commands sent)
+```bash
+source ~/mb-venv/bin/activate && cd ~/minibunker-workshop/real_pi
+python - <<'PY'
+import time
+from minibunker_real.bunker_can import BunkerCAN
+b = BunkerCAN(channel="can0")
+print("listening 6s (no commands sent)...")
+t0 = time.time()
+while time.time() - t0 < 6:
+    s = b.poll(timeout=0.2)
+    print(f"vstate={s.vehicle_state}{' ESTOP' if s.estop_engaged else ''} "
+          f"ctrl_mode={s.control_mode} batt={s.battery_voltage:.1f}V "
+          f"err={s.error_code} actual v={s.actual_linear:+.2f} w={s.actual_angular:+.2f}")
+    time.sleep(0.5)
+b.bus.shutdown()
+PY
+```
+Worked output — decoding `0x211 = 01 00 01 00 00 80 ..`:
+```
+vstate=1 ESTOP ctrl_mode=0 batt=25.6V err=128 actual v=+0.00 w=+0.00
+```
+i.e. **vehicle_state=ESTOP** (e-stop engaged ✓), **control_mode=STANDBY** (nothing
+has enabled CAN yet), **battery 25.6 V** (healthy), error_code `0x80`. Seeing a
+sane battery + the ESTOP flag means the full RX path works.
+
+---
+
+## 6. Autonomous-follow dry-run — worked example (e-stop ENGAGED)
+
+**This is the safe way to validate the whole autonomous pipeline before any real
+motion.** With the e-stop engaged the base ignores motion commands, so the stack
+ARMs, detects the ball, and *computes* follow velocities while the rover physically
+cannot move — you verify behaviour from the telemetry.
 
 ```bash
-# USB-CAN (gs_usb/slcan) — appears as a native CAN netdev:
-sudo ip link set can0 up type can bitrate 500000
-
-# MCP2515 CAN HAT — enable the overlay in /boot/firmware/config.txt first:
-#   dtoverlay=mcp2515-can0,oscillator=12000000,interrupt=25
-# reboot, then the same `ip link set can0 up ...`.
-
-candump can0      # sanity: you should see Bunker frames (0x211, 0x221, ...)
+# 1. follow the ball
+sed -i 's/^  follow_item:.*/  follow_item: ball/' real_pi/config.yaml
+# 2. run with live state telemetry + recorded frames
+source ~/mb-venv/bin/activate && cd ~/minibunker-workshop/real_pi
+python run.py --save-frames /tmp/mbframes
 ```
+Then: **read the telemetry — it MUST show `vstate=1 ESTOP!` before you ARM** (your
+safety gate). Type `a`+Enter to ARM, hold a green ball in front of the camera,
+then `d` to DISARM and `q` to quit.
 
-Then set `can/channel: can0` in `real_pi/config.yaml` (default).
+Worked output (the real 2026-06-26 dry-run, abridged):
+```
+[STOP    ] armed=False cmd v=+0.00 w=+0.00 | batt=25.6V ctrl_mode=0 vstate=1 ESTOP! actual_v=+0.00
+a
+[run] >>> ARMED
+[run] sent CONTROL_MODE_CAN
+[SEARCH  ] armed=True  cmd v=+0.00 w=+0.50 | batt=25.6V ctrl_mode=1 vstate=1 ESTOP! actual_v=+0.00
+[APPROACH] armed=True  cmd v=+0.20 w=+0.46 | batt=25.6V ctrl_mode=1 vstate=1 ESTOP! actual_v=+0.00
+[APPROACH] armed=True  cmd v=+0.17 w=-0.61 | batt=25.6V ctrl_mode=1 vstate=1 ESTOP! actual_v=+0.00
+[SEARCH  ] armed=True  cmd v=+0.00 w=+0.50 | batt=25.6V ctrl_mode=1 vstate=1 ESTOP! actual_v=+0.00
+d
+[run] >>> DISARMED
+[STOP    ] armed=False cmd v=+0.00 w=+0.00 | batt=25.6V ctrl_mode=1 vstate=1 ESTOP! actual_v=+0.00
+```
+What this proves:
+- **`ctrl_mode` flips 0→1 on ARM** ⇒ our `0x421` reached the base; it entered CAN mode.
+- **`SEARCH` → `APPROACH`** as the ball appears; `v≈0.2` forward, `w` steers toward it.
+- **`w` flips sign** (`+0.46` → `-0.61`) as the ball crosses sides ⇒ P-control tracking works.
+- **`actual_v=0` and `vstate=ESTOP` throughout** ⇒ commanding follow, not moving — safe.
+- Brief `APPROACH→SEARCH` blips = HSV momentarily losing the ball (lighting/motion
+  blur); tune the HSV ranges / `behavior/limits/lost_frames` if it's twitchy.
 
 ---
 
-## 6. Running the station (with the robot)
+## 7. Running the station + the first REAL drive
 
-**SAFETY — non-negotiable:** boots **DISARMED** (no motion frames sent), hard
-speed caps in `behavior/limits` clamped again to the HW ceiling, watchdog zeroes
-on any stall, **Ctrl-C → zero motion + STANDBY**. Keep the hardware e-stop in
-hand; run inside the fenced arena only; start with low caps.
+**SAFETY — non-negotiable:** boots **DISARMED** (no motion frames), hard caps in
+`behavior/limits` re-clamped to the HW ceiling, watchdog zeroes on stall,
+**Ctrl-C → zero motion + STANDBY**. Keep the hardware e-stop in hand; fenced arena
+only; start with low caps.
 
 ```bash
 source ~/mb-venv/bin/activate && cd ~/minibunker-workshop/real_pi
 sudo ip link set can0 up type can bitrate 500000     # if not already up
 
-# autonomous (set mission/follow_item: ball|cone in config.yaml):
-python run.py
-# teleop only (set mission/follow_item: none):
-python run.py        # then drive with the keys below
+python run.py                 # autonomous: needs mission/follow_item: ball|cone
+python run.py --headless      # same, no OpenCV window (SSH without X)
 
-# at the prompt (each key + Enter):
-#   a = ARM    d = DISARM    q = quit
-#   w/s = forward/back   j/l = turn left/right   x = stop   (mission=none)
+# keys (each + Enter):  a=ARM  d=DISARM  q=quit
+#   teleop (mission/follow_item: none):  w/s=fwd/back  j/l=turn  x=stop
 ```
-
-`run.py --headless` (or `--save-frames DIR`) drops the OpenCV window — use it when
-running over SSH without X. `--can vcan0` / `--no-can` are dry-run modes.
-
-Teleop is **in-process** (one motion owner on CAN, never a second sender). Keys
+Teleop is **in-process** (one motion owner on CAN — never a second sender). Keys
 are line-buffered (work over SSH); a WASD press auto-expires via the watchdog, so
 the rover drives for `behavior/teleop/timeout_ms` then stops unless re-pressed.
 
+### First real motion (release the e-stop) — recommended order
+Everything upstream of the wheels is validated (§5–§6); the only untested thing is
+real motion. Do it in two steps:
+
+1. **Teleop sanity first.** Set `follow_item: none`, drop the caps, release the
+   e-stop, ARM, give a single `w`+Enter nudge, confirm the wheels move the right
+   way and `actual_v` goes non-zero, then `x`/DISARM:
+   ```bash
+   sed -i 's/^  follow_item:.*/  follow_item: none/' real_pi/config.yaml
+   # optional: lower first-drive caps
+   sed -i 's/^    max_linear:.*/    max_linear: 0.15/'  real_pi/config.yaml
+   sed -i 's/^    max_angular:.*/    max_angular: 0.4/' real_pi/config.yaml
+   python run.py --headless          # 'a' ARM, one 'w', watch actual_v, 'x', 'd', 'q'
+   ```
+2. **Then autonomous follow for real.** Set `follow_item: ball` back, release the
+   e-stop, ARM, place the ball — it drives to it (COLLECT → RETREAT → SEARCH).
+
+If anything looks wrong: **hit the e-stop** (instant), or `d`/`q`/Ctrl-C (all zero
+the motion). The base also stops on its own if motion frames stop arriving.
+
 ---
 
-## 7. Workflow log (how this got built, 2026-06-26)
+## 8. Viewing the debug frames & video
+
+`run.py --save-frames DIR` writes annotated JPEGs; `run.py --save-video FILE`
+records an annotated video. Over SSH (no display) view them one of these ways:
+
+### (a) Serve over HTTP, view in your laptop browser  *(easiest)*
+```bash
+# on the Pi:
+cd /tmp/mbframes && python3 -m http.server 8000
+```
+On your laptop open `http://raspberrypi2.local:8000` (or `http://147.27.124.71:8000`)
+and click any `f000xx.jpg`. `Ctrl-C` on the Pi stops the server.
+
+### (b) Copy to the laptop with scp
+```bash
+# in a LAPTOP terminal (enter the Pi password):
+mkdir -p ~/mbframes_local
+scp "pi@raspberrypi2.local:/tmp/mbframes/*.jpg" ~/mbframes_local/
+```
+
+### (c) Record / watch as a VIDEO
+Record directly while running (one file, no glob needed):
+```bash
+python run.py --save-video /tmp/mb_run.mp4      # .mp4 -> mp4v; .avi -> MJPG
+```
+…or build a video from already-saved frames with ffmpeg (frames are every 5th of a
+20 Hz loop ≈ 4 fps real-time):
+```bash
+sudo apt install -y ffmpeg
+ffmpeg -framerate 4 -pattern_type glob -i '/tmp/mbframes/f*.jpg' \
+       -c:v libx264 -pix_fmt yuv420p /tmp/mb_run.mp4
+```
+Then view the single file via (a) the HTTP server (`cd /tmp && python3 -m http.server
+8000` → open `http://raspberrypi2.local:8000/mb_run.mp4`) or (b) `scp` it to the
+laptop. If an `.mp4` comes out empty on the Pi's OpenCV build, use `--save-video
+/tmp/mb_run.avi` (MJPG) or the ffmpeg route.
+
+---
+
+## 9. Status summary (2026-06-26, `raspberrypi2`)
+
+Camera = **Pi Camera v2 (IMX219)** via picamera2 @ 640×480; CAN = `can0` @ 500 kbps
+to the real Bunker Mini; battery 25.6 V; system libs numpy 1.24.2, cv2 4.6.0.
+
+| Check | State | Evidence |
+| --- | --- | --- |
+| `test_fsm` (FSM safety + transitions) | ✅ | 7/7 |
+| `test_detector` (HSV + perception_state) | ✅ | 4/4 |
+| `test_bunker_can` incl. **vcan0 loopback** | ✅ | 5/5, `[ok] vcan0 loopback` |
+| Camera capture (`run.py --no-can`) | ✅ | IMX219/picamera2, 640×480, clean DISARMED→STANDBY |
+| Live CAN to the real Bunker | ✅ | candump + decode: batt 25.6 V, vstate=ESTOP, ctrl_mode 0→1 on ARM |
+| **Autonomous follow dry-run, e-stop ENGAGED** | ✅ | SEARCH→APPROACH, `w` steers/flips with the ball, `actual_v=0` |
+| **Armed follow, e-stop RELEASED (real motion)** | ⛔ deferred | first low-cap drive in the fenced arena |
+
+---
+
+## 10. Workflow log (how this got built, 2026-06-26)
 
 1. SSH'd to `pi@raspberrypi2` (Bookworm 64-bit, Pi 5). Survey: git ✓, **docker
    absent**, no `can0`, camera present (`/dev/video0`), 46 GB free, 8 GB RAM.
@@ -218,36 +387,25 @@ the rover drives for `behavior/teleop/timeout_ms` then stops unless re-pressed.
 4. Lifted `detector.py`, `perception_state.py`, `fsm.py` from the ROS nodes
    (rospy removed); wrote `camera.py`, `config.py`, `run.py` (loop + safety).
 5. Tests: 16/16 pure-logic pass on the dev laptop + a 60-frame end-to-end
-   pipeline smoke (synthetic camera → HSV → pack → FSM). vcan loopback added for
-   the Pi.
-6. On the Pi: repo is **private** (git needs a PAT / `gh auth login`, not the
-   account password). Use **apt** numpy/OpenCV, not pip (piwheels numpy ⇒
-   `libopenblas.so.0` missing + shadows the apt build).
-7. **All hardware-free tests pass on `raspberrypi2`** (Pi 5, Bookworm 64-bit):
-   `test_fsm` 7/7, `test_detector` 4/4, `test_bunker_can` 5/5 **including the
-   real `vcan0` loopback** — so the Bunker protocol-v2 frames (0x111/0x421/0x211)
-   are validated on an actual socketcan bus. System libs: numpy 1.24.2, cv2 4.6.0.
-8. Camera validated: `run.py --no-can` and a 30-frame diagnostic both ran the
-   IMX219 via picamera2 at 640×480 (brightness ~126, `captured 30/30`). HSV fires
-   green/cone boxes when a coloured object is in view (empty otherwise).
-9. **CAN wired + read-only bring-up** caught a `SystemState` decode bug (byte0 is
-   `vehicle_state`, not `control_mode`) — fixed before any motion. Real frame
-   `01 00 01 00 00 80` = vehicle_state ESTOP, control_mode STANDBY, batt 25.6 V.
-10. **Autonomous follow dry-run with the e-stop ENGAGED**: armed + mission=ball,
-    the stack ran SEARCH→APPROACH, steering (`w`) tracked the ball and flipped
-    sign across sides, `ctrl_mode` flipped 0→1 (base accepted CAN), `actual_v=0`
-    and `vstate=ESTOP` throughout — full pipeline validated, zero motion.
-11. **Deferred:** real motion — release the e-stop for the first low-cap drive.
+   pipeline smoke (synthetic camera → HSV → pack → FSM). vcan loopback added.
+6. On the Pi: repo is **private** (git needs a PAT, not the account password); use
+   **apt** numpy/OpenCV, not pip (piwheels numpy ⇒ `libopenblas.so.0` shadow).
+7. **All hardware-free tests pass** (§4): fsm 7/7, detector 4/4, bunker_can 5/5
+   incl. the real `vcan0` loopback.
+8. Camera validated: IMX219 via picamera2 @ 640×480, `captured 30/30` frames.
+9. **CAN wired + read-only bring-up** caught a `SystemState` decode bug (byte0 =
+   `vehicle_state`, not `control_mode`) — fixed before any motion (§2 gotcha).
+10. **Autonomous follow dry-run, e-stop ENGAGED** (§6): SEARCH→APPROACH, steering
+    tracked + sign-flipped on the ball, `ctrl_mode` 0→1, `actual_v=0` — full
+    pipeline validated with zero motion.
+11. **Deferred:** real motion — release the e-stop for the first low-cap drive (§7).
 
-## 8. Open items / next steps
+## 11. Open items / next steps
 
-- **Wire a CAN adapter** (USB-CAN or MCP2515 HAT), `candump` the Bunker, then the
-  first **armed, low-cap** drive test in the fenced arena. This is the only
-  remaining gate to a full bring-up — everything upstream of CAN is validated.
-- **Camera:** ✅ IMX219 via picamera2 confirmed. Remaining is HSV-range tuning
-  under the actual arena lighting (verify a green ball / orange cone boxes).
+- **First real drive** (§7): teleop sanity nudge, then autonomous follow, low caps,
+  fenced arena. This is the only remaining gate — everything upstream is validated.
+- **HSV tuning** under the actual arena lighting (reduce the APPROACH→SEARCH blips).
 - **Autostart (optional):** a `systemd` unit for `run.py` once drive is trusted.
-- **CNN:** drop a trained `.onnx` in and set `detector/backend: cnn` (HSV is the
-  working default).
+- **CNN:** drop a trained `.onnx` in and set `detector/backend: cnn` (HSV default).
 - If a unit reports **protocol v1**, add the v1 frames to `bunker_can.py`.
 ```

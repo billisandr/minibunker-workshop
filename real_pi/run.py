@@ -21,6 +21,7 @@
 #    python3 run.py --no-can             # perception-only (no bus at all)
 #    python3 run.py --headless           # no debug window (saves CPU on the Pi)
 #    python3 run.py --save-frames out/   # dump annotated frames instead of a window
+#    python3 run.py --save-video run.mp4 # record an annotated video (view later)
 # ============================================================================
 from __future__ import annotations
 
@@ -50,6 +51,9 @@ def parse_args():
     ap.add_argument("--headless", action="store_true", help="no debug window")
     ap.add_argument("--save-frames", default=None,
                     help="dir to write annotated frames into (implies headless)")
+    ap.add_argument("--save-video", default=None,
+                    help="write an annotated video here, e.g. /tmp/run.mp4 "
+                         "(.mp4 -> mp4v, else MJPG/.avi). Implies headless.")
     return ap.parse_args()
 
 
@@ -141,9 +145,11 @@ def main():
     was_armed = False
 
     save_dir = args.save_frames
-    headless = args.headless or bool(save_dir)
+    save_video = args.save_video
+    headless = args.headless or bool(save_dir) or bool(save_video)
     if save_dir:
         os.makedirs(save_dir, exist_ok=True)
+    writer = None          # lazy cv2.VideoWriter (needs the first frame's size)
     frame_i = 0
     last_print = 0.0       # headless telemetry throttle
 
@@ -187,19 +193,30 @@ def main():
                     bunker.stop()
                 bunker.poll()                       # drain state frames
 
-            # --- debug viz ---
-            if not headless:
+            # --- debug viz / recording (annotate once, fan out) ---
+            want_frame_dump = save_dir and frame_i % 5 == 0
+            need_annot = (not headless) or want_frame_dump or save_video
+            annotated = None
+            if need_annot:
                 annotated = psmod.annotate(frame, dets, ps, backend_name,
                                            target_cls, state)
                 _draw_status(annotated, kb.armed, lin, ang,
                              bunker.state if bunker else None)
+            if not headless:
                 cv2.imshow("minibunker (real)", annotated)
                 if (cv2.waitKey(1) & 0xFF) == ord("q"):
                     break
-            elif save_dir and frame_i % 5 == 0:
-                annotated = psmod.annotate(frame, dets, ps, backend_name,
-                                           target_cls, state)
-                cv2.imwrite(os.path.join(save_dir, f"f{frame_i:05d}.jpg"), annotated)
+            else:
+                if want_frame_dump:
+                    cv2.imwrite(os.path.join(save_dir, f"f{frame_i:05d}.jpg"), annotated)
+                if save_video:
+                    if writer is None:
+                        h0, w0 = frame.shape[:2]
+                        fourcc = cv2.VideoWriter_fourcc(
+                            *("mp4v" if save_video.lower().endswith(".mp4") else "MJPG"))
+                        writer = cv2.VideoWriter(save_video, fourcc, rate, (w0, h0))
+                        print(f"[run] recording video -> {save_video} @ {rate:.0f} fps")
+                    writer.write(annotated)
             frame_i += 1
 
             # headless: throttled telemetry (~1 Hz) so an SSH drive is observable
@@ -225,6 +242,9 @@ def main():
         if bunker:
             bunker.shutdown()
         cam.close()
+        if writer is not None:
+            writer.release()
+            print(f"[run] video saved -> {save_video}")
         if not headless:
             cv2.destroyAllWindows()
 
