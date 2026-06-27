@@ -25,6 +25,15 @@ class Camera:
         self.flip = bool(cfg.get("camera/flip_horizontal", False))
         self.source = str(cfg.get("camera/source", "picamera"))
         self.device = cfg.get("camera/v4l2_device", "/dev/video0")
+        # picamera2 "RGB888" already returns a BGR-ordered array (libcamera fourcc
+        # names are byte-reversed), which is what OpenCV/our HSV want — so by
+        # DEFAULT we do NOT swap. Set camera/picam_swap_rb: true only if your
+        # build hands back true RGB (reds and blues look swapped otherwise).
+        self.picam_swap_rb = bool(cfg.get("camera/picam_swap_rb", False))
+        # white-balance: leave AWB on (default) for auto colour; or disable it and
+        # pin manual red/blue gains [r, b] for a stable colour under arena light.
+        self.awb_enable = bool(cfg.get("camera/awb_enable", True))
+        self.colour_gains = cfg.get("camera/colour_gains", None)  # [r, b] or None
         self._picam = None
         self._cap = None
         self._t = 0
@@ -62,7 +71,17 @@ class Camera:
             cam.configure(cam.create_video_configuration(
                 main={"size": (self.w, self.h), "format": "RGB888"}))
             cam.start()
-            print("[camera] picamera2 (libcamera)")
+            # white-balance controls (applied live after start)
+            try:
+                ctrls = {"AwbEnable": self.awb_enable}
+                if not self.awb_enable and self.colour_gains:
+                    ctrls["ColourGains"] = (float(self.colour_gains[0]),
+                                            float(self.colour_gains[1]))
+                cam.set_controls(ctrls)
+            except Exception as exc:  # noqa: BLE001 — controls are best-effort
+                print(f"[camera] AWB controls not applied: {exc}")
+            print(f"[camera] picamera2 (libcamera); swap_rb={self.picam_swap_rb} "
+                  f"awb={self.awb_enable}")
             return cam
         except Exception as exc:  # noqa: BLE001
             print(f"[camera] picamera2 init failed: {exc}")
@@ -71,8 +90,10 @@ class Camera:
     # -- read one BGR frame --------------------------------------------------
     def read(self):
         if self._picam is not None:
-            rgb = self._picam.capture_array()
-            frame = cv2.cvtColor(rgb, cv2.COLOR_RGB2BGR)
+            # "RGB888" already arrives BGR-ordered -> use as-is by default
+            frame = self._picam.capture_array()
+            if self.picam_swap_rb:
+                frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
         elif self._cap is not None:
             ok, frame = self._cap.read()
             if not ok:

@@ -188,6 +188,33 @@ to `/tmp/mbframes`. Confirmed output on the IMX219 (Pi Camera v2):
 ```
 (View the frames: see **§8**.)
 
+### 4.4 Camera colour & health
+Wrong/“strange” colours (esp. **reds and blues swapped**) on *both* cameras are a
+**software channel-order** issue, not bad sensors: picamera2's `"RGB888"` already
+returns a **BGR-ordered** array (libcamera fourcc names are byte-reversed), so no
+swap is needed. The default is correct (`camera/picam_swap_rb: false`); flip it
+only if your build differs.
+
+Diagnose (writes both interpretations + prints channel means; compare to the
+stock libcamera tool as ground truth):
+```bash
+python tests/camera_check.py            # -> /tmp/cam_asis.jpg + /tmp/cam_swapped.jpg
+rpicam-still -o /tmp/cam_ref.jpg        # (or libcamera-still) ground-truth colour
+cd /tmp && python3 -m http.server 8000  # view all three from the laptop browser
+# whichever of asis/swapped matches cam_ref sets camera/picam_swap_rb (false/true)
+```
+
+Camera **health** (is the sensor even detected / happy?):
+```bash
+rpicam-hello --list-cameras             # lists sensor(s) + modes (imx219 = Pi Cam v2)
+rpicam-still -o /tmp/t.jpg              # stock capture; correct colour here = HW fine
+dmesg | grep -i imx219                  # probe / I2C errors if it isn't detected
+```
+If `rpicam-still` colours are right but the app's are wrong → it's our pixel order
+(toggle `picam_swap_rb`). If `rpicam-still` is *also* wrong → white-balance/lighting:
+set `camera/awb_enable: false` + `camera/colour_gains: [r, b]` for a fixed cast, or
+re-tune the HSV ranges in `config.yaml` under the arena light.
+
 ---
 
 ## 5. Live-CAN bring-up — worked example (e-stop ENGAGED)

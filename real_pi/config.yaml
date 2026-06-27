@@ -20,6 +20,13 @@ camera:
   height: 480
   fps: 30
   flip_horizontal: false
+  # COLOUR: picamera2 "RGB888" arrives BGR-ordered (what OpenCV wants), so we do
+  # NOT swap by default. If reds/blues look swapped, set this true.
+  picam_swap_rb: false
+  # white balance: leave AWB on for auto colour; or set awb_enable:false and pin
+  # manual gains for a stable colour under fixed arena lighting.
+  awb_enable: true
+  colour_gains: null          # [red_gain, blue_gain] when awb_enable:false, else null
 
 detector:
   backend: hsv                # hsv | cnn
