@@ -273,10 +273,15 @@ def main():
                 if bunker is not None:
                     s = bunker.state
                     txerr = f" CAN-TX-ERR({bunker.tx_error})" if bunker.tx_error else ""
+                    warn = ""
+                    if s.vehicle_state == 2:           # VEHICLE_STATE_EXCEPTION
+                        warn = " !!base EXCEPTION (power-cycle to reset)"
+                    elif controls.armed and s.control_mode not in (-1, 1):
+                        warn = " !!base not in CAN mode (RC on? RC overrides CAN)"
                     extra = (f" | batt={s.battery_voltage:.1f}V ctrl_mode={s.control_mode}"
                              f" vstate={s.vehicle_state}"
                              f"{' ESTOP!' if s.estop_engaged else ''}"
-                             f" actual_v={s.actual_linear:+.2f}{txerr}")
+                             f" actual_v={s.actual_linear:+.2f}{txerr}{warn}")
                 print(f"[{state:8s}] armed={controls.armed} cmd v={lin:+.2f} w={ang:+.2f}{extra}")
 
             # keep the loop at rate_hz (also paces the CAN motion frames)

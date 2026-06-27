@@ -264,6 +264,26 @@ check it's powered on, the CAN cable is seated, and the bitrate is 500000. To
 bring `can0` up automatically at boot, add a `systemd-networkd` `.network`/`.link`
 or a tiny `ip link` unit (optional; otherwise re-run the `up` each session).
 
+### 5.4 Troubleshooting — RC-vs-CAN contention / `ctrl_mode=3` / EXCEPTION lock
+The `0x211` **control_mode** field tells you who is driving the base:
+`0`=STANDBY, **`1`=CAN (us)**, `2`=UART, **`3`=RC (handheld remote)**. AgileX gives
+the **RC priority over CAN**. If the RC transmitter is **on**, you'll see
+`ctrl_mode` flip **1↔3** while armed: our `CONTROL_MODE_CAN` is repeatedly
+overridden by the RC. That thrash (especially with an e-stop toggle mid-drive)
+can fault the base to **`vehicle_state=2` EXCEPTION**, which **latches** — after
+that `ctrl_mode` sticks at 3, `actual_v` freezes, and CAN commands are ignored.
+
+Fix:
+1. **Turn the RC transmitter OFF** (or set its mode switch to hand control to
+   CAN/external). With the RC on, CAN can never hold `ctrl_mode=1`.
+2. **Clear EXCEPTION:** DISARM + quit `run.py`, then **power-cycle the Bunker**
+   (engage→release the e-stop may also reset it). Idle should return to
+   `ctrl_mode=0`, `vstate=0`.
+3. Re-arm with the RC off: `ctrl_mode` should go to **1 and stay**.
+
+The panel and the headless console now flag this (`base not in CAN mode … RC on?`
+and `base EXCEPTION … power-cycle`).
+
 ---
 
 ## 6. Autonomous-follow dry-run — worked example (e-stop ENGAGED)
@@ -448,7 +468,8 @@ to the real Bunker Mini; battery 25.6 V; system libs numpy 1.24.2, cv2 4.6.0.
 | Camera capture (`run.py --no-can`) | ✅ | IMX219/picamera2, 640×480, clean DISARMED→STANDBY |
 | Live CAN to the real Bunker | ✅ | candump + decode: batt 25.6 V, vstate=ESTOP, ctrl_mode 0→1 on ARM |
 | **Autonomous follow dry-run, e-stop ENGAGED** | ✅ | SEARCH→APPROACH, `w` steers/flips with the ball, `actual_v=0` |
-| **Armed follow, e-stop RELEASED (real motion)** | ⛔ deferred | first low-cap drive in the fenced arena |
+| **Real motion** (e-stop released, armed, mission=ball) | ✅ | drove under CAN: `ctrl_mode=1`, `actual_v≈+0.20` tracking `cmd v` during APPROACH |
+| RC transmitter OFF for clean CAN control | ⚠ required | with RC on, `ctrl_mode` flips 1↔3 → base faults to EXCEPTION (§5.4) |
 
 ---
 
@@ -475,7 +496,11 @@ to the real Bunker Mini; battery 25.6 V; system libs numpy 1.24.2, cv2 4.6.0.
 10. **Autonomous follow dry-run, e-stop ENGAGED** (§6): SEARCH→APPROACH, steering
     tracked + sign-flipped on the ball, `ctrl_mode` 0→1, `actual_v=0` — full
     pipeline validated with zero motion.
-11. **Deferred:** real motion — release the e-stop for the first low-cap drive (§7).
+11. **Real motion achieved** (e-stop released): armed autonomous follow drove the
+    Bunker under CAN — `ctrl_mode=1`, `actual_v≈+0.20` tracking the APPROACH
+    command. Then hit the **RC-vs-CAN contention** lock: the RC transmitter was on
+    (`ctrl_mode` flipping 1↔3), base faulted to `vstate=2` EXCEPTION (§5.4). Fix =
+    RC off + power-cycle. Panel/console now flag mode-mismatch + EXCEPTION.
 
 ## 11. Open items / next steps
 
