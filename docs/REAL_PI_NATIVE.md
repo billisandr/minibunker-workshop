@@ -491,12 +491,24 @@ Open `http://localhost:8090`, set the page's **API base** to
 `http://raspberrypi2.local:8080`. Use this if you want to host/iterate the UI from
 the laptop while the Pi serves only JSON + the MJPEG stream.
 
-> Endpoints: `GET /api/state`, `GET /stream.mjpg`, `POST /api/arm?armed=1`,
-> `POST /api/teleop?key=w`, `POST /api/mission?follow=ball`. POSTs use query params
-> (CORS-"simple", no preflight) so the laptop-served page can call the Pi.
-> **Safety unchanged:** the panel ARM flows through the same FSM ARM gate + clamp
-> + watchdog; the **physical e-stop always overrides** (the panel shows an ESTOP
-> banner). Web teleop auto-expires via the watchdog on release / link loss.
+> Endpoints: `GET /api/state`, `GET /stream.mjpg`, `GET /mask.mjpg`,
+> `GET|POST /api/hsv`, `POST /api/arm?armed=1`, `POST /api/teleop?key=w`,
+> `POST /api/mission?follow=ball`, `POST /api/maskclass?cls=green_ball`. POSTs use
+> query params (CORS-"simple", no preflight) so the laptop-served page can call
+> the Pi. **Safety unchanged:** the panel ARM flows through the same FSM ARM gate
+> + clamp + watchdog; the **physical e-stop always overrides** (ESTOP banner). Web
+> teleop auto-expires via the watchdog on release / link loss.
+
+### Panel layout — Drive + Calibration
+- **Camera column** (both tabs): the annotated stream **and the live HSV mask** as
+  a second feed beneath it.
+- **Drive** tab (default): ARM/DISARM, mission, hold-to-drive teleop, telemetry.
+- **Calibration** tab: reveals a third column — pick `green_ball`/`cone`, drag the
+  **H/S/V lower+upper + min_area** sliders and watch the mask clean up live (the
+  detector's ranges update each frame), then copy the shown `config.yaml` snippet
+  into `detector/hsv`. This is how you fix flaky/shadow detections under the real
+  arena light (the sim HSV ranges were tuned for Gazebo, not a real camera).
+  Calibration needs `detector/backend: hsv`.
 
 ---
 

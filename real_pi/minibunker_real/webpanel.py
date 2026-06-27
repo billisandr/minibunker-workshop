@@ -39,20 +39,29 @@ class Telemetry:
         self._lock = threading.Lock()
         self._snap = {"state": "BOOT", "armed": False, "can": False}
         self._jpeg = None
+        self._mask = None
         self._q = int(jpeg_quality)
 
+    @staticmethod
+    def _encode(img, q):
+        import cv2
+        ok, buf = cv2.imencode(".jpg", img, [cv2.IMWRITE_JPEG_QUALITY, q])
+        return buf.tobytes() if ok else None
+
     def update(self, snap, annotated_bgr):
-        jpeg = None
-        if annotated_bgr is not None:
-            import cv2
-            ok, buf = cv2.imencode(".jpg", annotated_bgr,
-                                   [cv2.IMWRITE_JPEG_QUALITY, self._q])
-            if ok:
-                jpeg = buf.tobytes()
+        jpeg = self._encode(annotated_bgr, self._q) if annotated_bgr is not None else None
         with self._lock:
             self._snap = snap
             if jpeg is not None:
                 self._jpeg = jpeg
+
+    def update_mask(self, mask):
+        if mask is None:
+            return
+        jpeg = self._encode(mask, 60)
+        if jpeg is not None:
+            with self._lock:
+                self._mask = jpeg
 
     def snapshot(self):
         with self._lock:
@@ -62,11 +71,29 @@ class Telemetry:
         with self._lock:
             return self._jpeg
 
+    def mask(self):
+        with self._lock:
+            return self._mask
 
-def create_app(controls, telemetry):
+
+def _hsv_ranges(hsv_detector):
+    """{green_ball:{lower,upper,min_area}, cone:{...}} from the live detector cfg."""
+    out = {}
+    cfg = getattr(hsv_detector, "cfg", {}) or {}
+    for c in ("green_ball", "cone"):
+        sub = cfg.get(c, {})
+        out[c] = {"lower": list(sub.get("lower", [0, 0, 0])),
+                  "upper": list(sub.get("upper", [179, 255, 255])),
+                  "min_area": int(sub.get("min_area", 500))}
+    return out
+
+
+def create_app(controls, telemetry, hsv_detector=None):
     from flask import Flask, Response, jsonify, request, send_from_directory
 
     app = Flask(__name__, static_folder=None)
+    has_hsv = hsv_detector is not None and "green_ball" in getattr(
+        hsv_detector, "cfg", {})
 
     @app.after_request
     def _cors(resp):
@@ -107,27 +134,67 @@ def create_app(controls, telemetry):
         controls.set_follow(follow if follow in ("none", "ball", "cone") else "none")
         return jsonify(ok=True, follow=controls.follow_override)
 
-    @app.route("/stream.mjpg")
-    def stream():
+    def _mjpeg(getter):
         def gen():
-            boundary = b"--frame"
             while True:
-                jpg = telemetry.jpeg()
+                jpg = getter()
                 if jpg is not None:
-                    yield (boundary + b"\r\nContent-Type: image/jpeg\r\n"
+                    yield (b"--frame\r\nContent-Type: image/jpeg\r\n"
                            b"Content-Length: " + str(len(jpg)).encode() +
                            b"\r\n\r\n" + jpg + b"\r\n")
                 time.sleep(1.0 / 15.0)
         return Response(gen(),
                         mimetype="multipart/x-mixed-replace; boundary=frame")
 
+    @app.route("/stream.mjpg")
+    def stream():
+        return _mjpeg(telemetry.jpeg)
+
+    @app.route("/mask.mjpg")
+    def mask_stream():
+        return _mjpeg(telemetry.mask)
+
+    # -- HSV calibration (only meaningful with the HSV backend) -------------
+    @app.route("/api/maskclass", methods=["POST", "OPTIONS"])
+    def maskclass():
+        if request.method == "OPTIONS":
+            return ("", 204)
+        cls = request.args.get("cls", "green_ball")
+        controls.set_mask_class(cls if cls in ("green_ball", "cone") else "green_ball")
+        return jsonify(ok=True, mask_class=controls.mask_class)
+
+    @app.route("/api/hsv", methods=["GET", "POST", "OPTIONS"])
+    def hsv():
+        if request.method == "OPTIONS":
+            return ("", 204)
+        if not has_hsv:
+            return jsonify(ok=False, error="HSV backend not active"), 400
+        if request.method == "GET":
+            return jsonify(ranges=_hsv_ranges(hsv_detector),
+                           mask_class=controls.mask_class)
+        cls = request.args.get("cls", "green_ball")
+        if cls not in ("green_ball", "cone"):
+            return jsonify(ok=False, error="bad cls"), 400
+        sub = hsv_detector.cfg.setdefault(cls, {})
+        cur_l = list(sub.get("lower", [0, 0, 0]))
+        cur_u = list(sub.get("upper", [179, 255, 255]))
+
+        def gi(key, default):
+            v = request.args.get(key)
+            return int(v) if v is not None else default
+        sub["lower"] = [gi("hl", cur_l[0]), gi("sl", cur_l[1]), gi("vl", cur_l[2])]
+        sub["upper"] = [gi("hu", cur_u[0]), gi("su", cur_u[1]), gi("vu", cur_u[2])]
+        sub["min_area"] = gi("min_area", sub.get("min_area", 500))
+        controls.set_mask_class(cls)
+        return jsonify(ok=True, ranges=_hsv_ranges(hsv_detector))
+
     return app
 
 
-def start_web(controls, telemetry, host="0.0.0.0", port=8080):
+def start_web(controls, telemetry, host="0.0.0.0", port=8080, hsv_detector=None):
     """Launch Flask in a daemon thread. Returns immediately."""
     try:
-        app = create_app(controls, telemetry)
+        app = create_app(controls, telemetry, hsv_detector=hsv_detector)
     except ImportError as exc:  # pragma: no cover
         print(f"[webpanel] Flask not installed ({exc}). `pip install flask` to "
               "enable --web. Continuing without the panel.")

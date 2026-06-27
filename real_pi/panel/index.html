@@ -13,32 +13,34 @@
   header { display:flex; align-items:center; gap:12px; padding:10px 16px;
            background:var(--panel); border-bottom:1px solid var(--line); flex-wrap:wrap;}
   header h1 { font-size:15px; margin:0; letter-spacing:.5px; }
+  .tabs { display:flex; gap:6px; }
+  .tabs button { background:#1c2430; color:var(--fg); border:1px solid var(--line);
+                 border-radius:8px; padding:5px 14px; cursor:pointer; font:inherit; }
+  .tabs button.sel { background:var(--cy); border-color:var(--cy); color:#04222a; font-weight:bold; }
   header .api { margin-left:auto; display:flex; align-items:center; gap:6px; color:var(--mut);}
   header input { background:#0b0f14; color:var(--fg); border:1px solid var(--line);
-                 border-radius:6px; padding:4px 8px; width:230px; font:inherit; }
+                 border-radius:6px; padding:4px 8px; width:210px; font:inherit; }
   #conn { font-weight:bold; }
   .wrap { display:grid; grid-template-columns: 1.3fr 1fr; gap:16px; padding:16px;
           max-width:1100px; margin:0 auto; }
-  @media (max-width:820px){ .wrap{ grid-template-columns:1fr; } }
-  .card { background:var(--panel); border:1px solid var(--line); border-radius:10px;
-          padding:14px; }
+  body.cal .wrap { grid-template-columns: 1.25fr 1fr 1.1fr; max-width:1500px; }
+  @media (max-width:820px){ .wrap, body.cal .wrap { grid-template-columns:1fr; } }
+  .card { background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:14px; }
   .card h2 { font-size:12px; text-transform:uppercase; letter-spacing:1px;
              color:var(--mut); margin:0 0 10px; }
-  #cam { width:100%; border-radius:8px; background:#000; aspect-ratio:4/3; object-fit:contain; }
-  #estop { display:none; margin:0 0 12px; padding:8px 12px; border-radius:8px;
-           background:#3a2a00; color:var(--amb); border:1px solid var(--amb); font-weight:bold;}
-  #canerr { display:none; margin:0 0 12px; padding:8px 12px; border-radius:8px;
-            background:#3a1010; color:#ff6b6b; border:1px solid var(--red); font-weight:bold;}
-  #modewarn { display:none; margin:0 0 12px; padding:8px 12px; border-radius:8px;
-              background:#3a2a00; color:var(--amb); border:1px solid var(--amb); font-weight:bold;}
+  #calCard { display:none; } body.cal #calCard { display:block; }
+  img.feed { width:100%; border-radius:8px; background:#000; aspect-ratio:4/3; object-fit:contain; }
+  .feedlbl { color:var(--mut); font-size:12px; margin:8px 0 2px; }
+  .banner { display:none; margin:0 0 12px; padding:8px 12px; border-radius:8px; font-weight:bold; }
+  #estop, #modewarn { background:#3a2a00; color:var(--amb); border:1px solid var(--amb); }
+  #canerr { background:#3a1010; color:#ff6b6b; border:1px solid var(--red); }
   .grid { display:grid; grid-template-columns:auto 1fr; gap:4px 14px; }
-  .grid .k { color:var(--mut); }
-  .grid .v { text-align:right; }
+  .grid .k { color:var(--mut); } .grid .v { text-align:right; }
   .pill { display:inline-block; padding:1px 8px; border-radius:999px; font-weight:bold; }
   .arm-row { display:flex; gap:10px; margin:4px 0 12px; }
-  button { font:inherit; cursor:pointer; border:1px solid var(--line); border-radius:8px;
-           background:#1c2430; color:var(--fg); padding:10px 12px; }
-  button:active { transform:translateY(1px); }
+  button.act { font:inherit; cursor:pointer; border:1px solid var(--line); border-radius:8px;
+               background:#1c2430; color:var(--fg); padding:10px 12px; }
+  button.act:active { transform:translateY(1px); }
   .arm { flex:1; font-weight:bold; }
   .arm.on  { background:var(--red); border-color:var(--red); }
   .arm.off { background:var(--grn); border-color:var(--grn); }
@@ -49,56 +51,58 @@
   .pad button { padding:14px 0; font-size:16px; }
   .pad .sp { visibility:hidden; }
   .hint { color:var(--mut); font-size:12px; margin-top:8px; }
+  .sl { display:grid; grid-template-columns:74px 1fr 44px; align-items:center; gap:8px; margin:5px 0; }
+  .sl label { color:var(--mut); } .sl .val { text-align:right; }
+  input[type=range] { width:100%; }
+  pre { background:#0b0f14; border:1px solid var(--line); border-radius:8px; padding:10px;
+        overflow:auto; color:#cdd9e5; font-size:12px; }
 </style>
 </head>
 <body>
 <header>
-  <h1>🛰️ MiniBunker · native panel</h1>
+  <h1>🛰️ MiniBunker</h1>
+  <div class="tabs">
+    <button id="tabDrive" class="sel" onclick="setTab('drive')">Drive</button>
+    <button id="tabCal" onclick="setTab('cal')">Calibration</button>
+  </div>
   <span id="conn" style="color:var(--mut)">connecting…</span>
   <span class="api">API <input id="api" placeholder="(same origin)"></span>
 </header>
 
 <div class="wrap">
+  <!-- ===== Camera + mask (both tabs) ===== -->
   <div class="card">
     <h2>Camera</h2>
-    <div id="estop">⚠ E-STOP ENGAGED — motors disabled</div>
-    <div id="canerr">⚠ CAN TX error — is can0 up and the Bunker on?</div>
-    <div id="modewarn"></div>
-    <img id="cam" alt="camera stream">
-    <div class="hint">Live annotated stream (MJPEG). Boxes = detections; HUD = state.</div>
+    <div id="estop" class="banner">⚠ E-STOP ENGAGED — motors disabled</div>
+    <div id="canerr" class="banner">⚠ CAN TX error</div>
+    <div id="modewarn" class="banner"></div>
+    <img id="cam" class="feed" alt="camera stream">
+    <div class="feedlbl">HSV mask — <span id="maskCls">green_ball</span></div>
+    <img id="mask" class="feed" alt="hsv mask">
   </div>
 
+  <!-- ===== Control (both tabs) ===== -->
   <div class="card">
     <h2>Control</h2>
     <div class="arm-row">
-      <button id="armBtn"   class="arm off" onclick="setArm(true)">ARM</button>
-      <button id="disarmBtn" class="arm" onclick="setArm(false)">DISARM</button>
+      <button id="armBtn" class="act arm off" onclick="setArm(true)">ARM</button>
+      <button id="disarmBtn" class="act arm" onclick="setArm(false)">DISARM</button>
     </div>
-
     <h2>Mission (follow)</h2>
     <div class="seg" id="mission">
-      <button data-m="none" onclick="setMission('none')">none</button>
-      <button data-m="ball" onclick="setMission('ball')">ball</button>
-      <button data-m="cone" onclick="setMission('cone')">cone</button>
+      <button class="act" data-m="none" onclick="setMission('none')">none</button>
+      <button class="act" data-m="ball" onclick="setMission('ball')">ball</button>
+      <button class="act" data-m="cone" onclick="setMission('cone')">cone</button>
     </div>
-
     <h2>Teleop <span class="hint">(mission=none)</span></h2>
     <div class="pad">
-      <span class="sp"></span>
-      <button data-k="w">▲</button>
-      <span class="sp"></span>
-      <button data-k="j">◄</button>
-      <button data-k="x">■</button>
-      <button data-k="l">►</button>
-      <span class="sp"></span>
-      <button data-k="s">▼</button>
-      <span class="sp"></span>
+      <span class="sp"></span><button class="act" data-k="w">▲</button><span class="sp"></span>
+      <button class="act" data-k="j">◄</button><button class="act" data-k="x">■</button><button class="act" data-k="l">►</button>
+      <span class="sp"></span><button class="act" data-k="s">▼</button><span class="sp"></span>
     </div>
-    <div class="hint">Hold a button (or keys W/S/J/L, X=stop, A=ARM, D=DISARM).
-      Auto-stops via the watchdog if you release / lose the link.</div>
-
+    <div class="hint">Hold a button (or keys W/S/J/L, X=stop, A=ARM, D=DISARM).</div>
     <h2 style="margin-top:14px">Telemetry</h2>
-    <div class="grid" id="tele">
+    <div class="grid">
       <span class="k">state</span><span class="v" id="t_state">–</span>
       <span class="k">armed</span><span class="v" id="t_armed">–</span>
       <span class="k">cmd v / ω</span><span class="v" id="t_cmd">–</span>
@@ -111,101 +115,150 @@
       <span class="k">backend</span><span class="v" id="t_backend">–</span>
     </div>
   </div>
+
+  <!-- ===== Calibration (Calibration tab only) ===== -->
+  <div class="card" id="calCard">
+    <h2>Detection calibration (HSV)</h2>
+    <div id="calNote" class="hint" style="margin-bottom:8px"></div>
+    <div class="seg" id="hsvClass">
+      <button class="act" data-c="green_ball" onclick="selClass('green_ball')">green_ball</button>
+      <button class="act" data-c="cone" onclick="selClass('cone')">cone</button>
+    </div>
+    <div id="sliders"></div>
+    <h2 style="margin-top:12px">config.yaml (copy in to keep)</h2>
+    <pre id="yaml">—</pre>
+    <div class="hint">Drag until the <b>mask</b> (under the camera) shows a clean blob
+      on the object and drops shadows. Then paste this into
+      <code>detector/hsv</code> in config.yaml.</div>
+  </div>
 </div>
 
 <script>
 const $ = id => document.getElementById(id);
 const apiInput = $("api");
-// API base persists across reloads (handy for the laptop-served mode)
 apiInput.value = localStorage.getItem("mb_api") || "";
 const base = () => apiInput.value.replace(/\/$/, "");
 function applyApi() {
   localStorage.setItem("mb_api", apiInput.value);
-  $("cam").src = base() + "/stream.mjpg?" + Date.now();
+  $("cam").src  = base() + "/stream.mjpg?" + Date.now();
+  $("mask").src = base() + "/mask.mjpg?" + Date.now();
 }
 apiInput.addEventListener("change", applyApi);
 
-async function post(path) {
-  try { await fetch(base() + path, { method: "POST" }); } catch (e) {}
+async function post(path) { try { await fetch(base()+path,{method:"POST"}); } catch(e){} }
+function setArm(on){ post("/api/arm?armed="+(on?1:0)); }
+function setMission(m){ post("/api/mission?follow="+m); }
+
+// --- tabs ---
+function setTab(t){
+  document.body.classList.toggle("cal", t==="cal");
+  $("tabDrive").classList.toggle("sel", t==="drive");
+  $("tabCal").classList.toggle("sel", t==="cal");
+  if (t==="cal") loadHsv();
 }
-function setArm(on)      { post("/api/arm?armed=" + (on ? 1 : 0)); }
-function setMission(m)   { post("/api/mission?follow=" + m); }
 
-// --- press-and-hold teleop (buttons + keyboard share one timer) ---
-let holdKey = null;
-setInterval(() => { if (holdKey) post("/api/teleop?key=" + holdKey); }, 150);
-function startHold(k){ holdKey = k; post("/api/teleop?key=" + k); }
-function stopHold(){ if (holdKey){ holdKey = null; post("/api/teleop?key=x"); } }
+// --- teleop hold ---
+let holdKey=null;
+setInterval(()=>{ if(holdKey) post("/api/teleop?key="+holdKey); },150);
+function startHold(k){ holdKey=k; post("/api/teleop?key="+k); }
+function stopHold(){ if(holdKey){ holdKey=null; post("/api/teleop?key=x"); } }
+document.querySelectorAll(".pad button").forEach(b=>{
+  const k=b.dataset.k;
+  if(k==="x"){ b.onclick=()=>post("/api/teleop?key=x"); return; }
+  b.addEventListener("mousedown",()=>startHold(k));
+  b.addEventListener("touchstart",e=>{e.preventDefault();startHold(k);});
+  ["mouseup","mouseleave","touchend"].forEach(ev=>b.addEventListener(ev,stopHold));
+});
+document.addEventListener("keydown",e=>{
+  if(e.repeat||/input|textarea/i.test(e.target.tagName)) return;
+  const k=e.key.toLowerCase();
+  if(k==="a")setArm(true); else if(k==="d")setArm(false);
+  else if("wsjl".includes(k))startHold(k); else if(k==="x")post("/api/teleop?key=x");
+});
+document.addEventListener("keyup",e=>{ if("wsjl".includes(e.key.toLowerCase()))stopHold(); });
 
-document.querySelectorAll(".pad button").forEach(b => {
-  const k = b.dataset.k;
-  if (k === "x") { b.onclick = () => post("/api/teleop?key=x"); return; }
-  b.addEventListener("mousedown", () => startHold(k));
-  b.addEventListener("touchstart", e => { e.preventDefault(); startHold(k); });
-  ["mouseup","mouseleave","touchend"].forEach(ev => b.addEventListener(ev, stopHold));
-});
-document.addEventListener("keydown", e => {
-  if (e.repeat) return;
-  const k = e.key.toLowerCase();
-  if (k === "a") setArm(true);
-  else if (k === "d") setArm(false);
-  else if ("wsjl".includes(k)) startHold(k);
-  else if (k === "x") post("/api/teleop?key=x");
-});
-document.addEventListener("keyup", e => {
-  if ("wsjl".includes(e.key.toLowerCase())) stopHold();
-});
+// --- HSV calibration ---
+const SL=[["hl","H low",179],["hu","H high",179],["sl","S low",255],["su","S high",255],
+          ["vl","V low",255],["vu","V high",255],["min_area","min area",12000]];
+let ranges=null, curClass="green_ball", postTimer=null;
+function buildSliders(){
+  $("sliders").innerHTML = SL.map(([id,lbl,max])=>
+    `<div class="sl"><label>${lbl}</label>`+
+    `<input type="range" id="s_${id}" min="0" max="${max}" `+
+    `step="${id==='min_area'?100:1}" oninput="onSlider()">`+
+    `<span class="val" id="v_${id}">0</span></div>`).join("");
+}
+function populate(){
+  if(!ranges) return;
+  const r=ranges[curClass]; if(!r) return;
+  const set=(id,v)=>{ $("s_"+id).value=v; $("v_"+id).textContent=v; };
+  set("hl",r.lower[0]); set("sl",r.lower[1]); set("vl",r.lower[2]);
+  set("hu",r.upper[0]); set("su",r.upper[1]); set("vu",r.upper[2]);
+  set("min_area",r.min_area);
+  document.querySelectorAll("#hsvClass button").forEach(b=>b.classList.toggle("sel",b.dataset.c===curClass));
+  $("maskCls").textContent=curClass; renderYaml();
+}
+function renderYaml(){
+  const g=id=>parseInt($("s_"+id).value);
+  $("yaml").textContent =
+    `  ${curClass}:\n    lower: [${g("hl")}, ${g("sl")}, ${g("vl")}]\n`+
+    `    upper: [${g("hu")}, ${g("su")}, ${g("vu")}]\n    min_area: ${g("min_area")}`;
+}
+function onSlider(){
+  SL.forEach(([id])=>$("v_"+id).textContent=$("s_"+id).value);
+  renderYaml();
+  clearTimeout(postTimer);
+  postTimer=setTimeout(()=>{
+    const g=id=>$("s_"+id).value;
+    post(`/api/hsv?cls=${curClass}&hl=${g("hl")}&sl=${g("sl")}&vl=${g("vl")}`+
+         `&hu=${g("hu")}&su=${g("su")}&vu=${g("vu")}&min_area=${g("min_area")}`);
+  },120);
+}
+async function selClass(c){ curClass=c; await post("/api/maskclass?cls="+c); populate(); }
+async function loadHsv(){
+  try {
+    const r=await fetch(base()+"/api/hsv",{cache:"no-store"});
+    if(!r.ok){ $("calNote").textContent="HSV backend not active (detector/backend is not 'hsv')."; return; }
+    const j=await r.json(); ranges=j.ranges; curClass=j.mask_class||"green_ball";
+    $("calNote").textContent=""; populate();
+  } catch(e){ $("calNote").textContent="cannot reach API."; }
+}
+buildSliders();
 
 // --- telemetry poll ---
-function pill(txt, color){ return `<span class="pill" style="background:${color};color:#04121a">${txt}</span>`; }
-async function poll() {
-  try {
-    const r = await fetch(base() + "/api/state", { cache: "no-store" });
-    const s = await r.json();
-    $("conn").textContent = "● connected"; $("conn").style.color = "var(--grn)";
-    $("t_state").textContent  = s.state;
-    $("t_armed").innerHTML    = s.armed ? pill("ARMED","#da3633") : pill("DISARMED","#2ea043");
-    $("t_cmd").textContent    = `${(s.cmd_lin>=0?"+":"")}${s.cmd_lin} / ${(s.cmd_ang>=0?"+":"")}${s.cmd_ang}`;
-    $("t_backend").textContent= s.backend + "  (" + s.n_dets + " dets)";
-    $("t_target").innerHTML   = s.target_seen ? pill("seen cx="+s.target_cx,"#39c5cf") : "—";
-    $("t_hazard").innerHTML   = s.hazard_seen ? pill(s.hazard_danger?"DANGER":"seen","#d29922") : "—";
-    // mission highlight
-    document.querySelectorAll("#mission button").forEach(b =>
-      b.classList.toggle("sel", b.dataset.m === s.follow));
-    // arm button highlight
-    $("armBtn").classList.toggle("on", s.armed);
-    $("armBtn").classList.toggle("off", !s.armed);
-    if (s.can) {
-      $("t_batt").textContent  = s.battery + " V";
-      $("t_mode").textContent  = s.ctrl_mode + (s.ctrl_mode===1?" (CAN)":s.ctrl_mode===0?" (STBY)":"");
-      $("t_vstate").innerHTML  = s.estop ? pill("ESTOP","#d29922")
-                               : s.vehicle_state===0 ? pill("NORMAL","#2ea043") : s.vehicle_state;
-      $("t_actual").textContent= (s.actual_lin>=0?"+":"") + s.actual_lin + " m/s";
-      $("estop").style.display = s.estop ? "block" : "none";
-      const ce = $("canerr");
-      ce.style.display = s.tx_error ? "block" : "none";
-      if (s.tx_error) ce.textContent = "⚠ CAN TX error: " + s.tx_error;
-      // RC-vs-CAN contention / fault: armed but base not in CAN (1), or EXCEPTION (2)
-      const mw = $("modewarn");
-      if (s.vehicle_state === 2) {
-        mw.style.display = "block";
-        mw.textContent = "⚠ base EXCEPTION (vstate=2) — power-cycle the Bunker to reset";
-      } else if (s.armed && s.ctrl_mode !== 1) {
-        mw.style.display = "block";
-        mw.textContent = "⚠ base not in CAN mode (mode=" + s.ctrl_mode +
-                         ") — turn the RC transmitter OFF (RC overrides CAN)";
-      } else { mw.style.display = "none"; }
+function pill(t,c){ return `<span class="pill" style="background:${c};color:#04121a">${t}</span>`; }
+async function poll(){
+  try{
+    const s=await (await fetch(base()+"/api/state",{cache:"no-store"})).json();
+    $("conn").textContent="● connected"; $("conn").style.color="var(--grn)";
+    $("t_state").textContent=s.state;
+    $("t_armed").innerHTML=s.armed?pill("ARMED","#da3633"):pill("DISARMED","#2ea043");
+    $("t_cmd").textContent=`${s.cmd_lin>=0?"+":""}${s.cmd_lin} / ${s.cmd_ang>=0?"+":""}${s.cmd_ang}`;
+    $("t_backend").textContent=s.backend+" ("+s.n_dets+" dets)";
+    $("t_target").innerHTML=s.target_seen?pill("seen cx="+s.target_cx,"#39c5cf"):"—";
+    $("t_hazard").innerHTML=s.hazard_seen?pill(s.hazard_danger?"DANGER":"seen","#d29922"):"—";
+    document.querySelectorAll("#mission button").forEach(b=>b.classList.toggle("sel",b.dataset.m===s.follow));
+    $("armBtn").classList.toggle("on",s.armed); $("armBtn").classList.toggle("off",!s.armed);
+    const show=(el,on,txt)=>{ el.style.display=on?"block":"none"; if(on&&txt)el.textContent=txt; };
+    if(s.can){
+      $("t_batt").textContent=s.battery+" V";
+      $("t_mode").textContent=s.ctrl_mode+(s.ctrl_mode===1?" (CAN)":s.ctrl_mode===0?" (STBY)":s.ctrl_mode===3?" (RC)":"");
+      $("t_vstate").innerHTML=s.estop?pill("ESTOP","#d29922"):s.vehicle_state===0?pill("NORMAL","#2ea043"):s.vehicle_state===2?pill("EXCEPTION","#da3633"):s.vehicle_state;
+      $("t_actual").textContent=(s.actual_lin>=0?"+":"")+s.actual_lin+" m/s";
+      show($("estop"),s.estop);
+      show($("canerr"),!!s.tx_error,"⚠ CAN TX error: "+s.tx_error);
+      if(s.vehicle_state===2) show($("modewarn"),true,"⚠ base EXCEPTION — power-cycle the Bunker to reset");
+      else if(s.armed&&s.ctrl_mode!==1) show($("modewarn"),true,"⚠ base not in CAN mode (mode="+s.ctrl_mode+") — turn the RC transmitter OFF");
+      else show($("modewarn"),false);
     } else {
       $("t_batt").textContent="(no CAN)"; $("t_mode").textContent="–";
       $("t_vstate").textContent="–"; $("t_actual").textContent="–";
+      [$("estop"),$("canerr"),$("modewarn")].forEach(e=>e.style.display="none");
     }
-  } catch (e) {
-    $("conn").textContent = "○ no connection"; $("conn").style.color = "var(--red)";
-  }
-  setTimeout(poll, 300);
+  }catch(e){ $("conn").textContent="○ no connection"; $("conn").style.color="var(--red)"; }
+  setTimeout(poll,300);
 }
-applyApi();
-poll();
+applyApi(); poll();
 </script>
 </body>
 </html>

@@ -31,6 +31,7 @@ COLOURS = {CLASS_GREEN_BALL: (0, 255, 0), CLASS_CONE: (0, 140, 255)}
 class HsvDetector:
     def __init__(self, cfg):
         self.cfg = cfg
+        self.last_masks = {}      # {class_name: mono mask} from the last detect()
 
     @staticmethod
     def _ksize(spec, default):
@@ -73,6 +74,8 @@ class HsvDetector:
         cn, cmask = self._detect_colour(hsv, self.cfg["cone"])
         for (x, y, w, h, s) in cn:
             dets.append((CLASS_CONE, x, y, w, h, s))
+        # stash per-class masks so the web panel can stream the selected one
+        self.last_masks = {"green_ball": gmask, "cone": cmask}
         return dets, cv2.bitwise_or(gmask, cmask)
 
 

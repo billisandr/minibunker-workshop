@@ -86,6 +86,7 @@ class Controls:
         self.lin_speed = lin_speed
         self.ang_speed = ang_speed
         self.follow_override = None        # None -> use config mission/follow_item
+        self.mask_class = "green_ball"     # which HSV mask the panel streams
         self._intent = (0.0, 0.0, 0.0)     # (linear, angular, stamp)
         if read_stdin:
             threading.Thread(target=self._stdin_loop, daemon=True).start()
@@ -126,6 +127,9 @@ class Controls:
     def set_follow(self, item):
         """Live mission override; 'none'|'ball'|'cone' (None -> back to config)."""
         self.follow_override = item
+
+    def set_mask_class(self, cls):
+        self.mask_class = cls
 
     def _stdin_loop(self):
         for line in sys.stdin:
@@ -183,7 +187,9 @@ def main():
     if args.web:
         from minibunker_real.webpanel import Telemetry, start_web
         web = Telemetry()
-        start_web(controls, web, host=args.web_host, port=args.web_port)
+        hsv_detector = detector if backend_name == "hsv" else None
+        start_web(controls, web, host=args.web_host, port=args.web_port,
+                  hsv_detector=hsv_detector)
         print(f"[run] web panel: http://<this-host>:{args.web_port}  "
               f"(bind {args.web_host})")
 
@@ -264,6 +270,9 @@ def main():
                 web.update(_snapshot(state, controls, lin, ang, follow,
                                      backend_name, ps, len(dets), bunker, rate),
                            annotated)
+                if backend_name == "hsv":
+                    masks = getattr(detector, "last_masks", {})
+                    web.update_mask(masks.get(controls.mask_class))
             frame_i += 1
 
             # headless: throttled telemetry (~1 Hz) so an SSH drive is observable
