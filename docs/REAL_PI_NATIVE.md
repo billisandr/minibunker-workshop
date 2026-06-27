@@ -335,9 +335,27 @@ What this proves:
 **Ctrl-C → zero motion + STANDBY**. Keep the hardware e-stop in hand; fenced arena
 only; start with low caps.
 
+**One-command start (recommended): `mb`.** `start_real_pi.sh` does the safe
+ordered start — bounce CAN up (gs_usb), confirm the Bunker is on the bus, then
+launch `run.py --web`. Install the alias once:
+```bash
+echo "alias mb='bash ~/minibunker-workshop/real_pi/start_real_pi.sh'" >> ~/.bashrc
+source ~/.bashrc
+```
+then (Bunker ON, **RC OFF**, e-stop in hand):
+```bash
+mb                    # bounce CAN + sanity-check + launch the --web panel
+mb -f                 # skip the CAN frame check (force)
+mb --save-video /tmp/run.mp4    # extra args pass through to run.py
+```
+It refuses to start if a `run.py` is already running (two motion owners on one
+bus) or if no CAN frames are seen (Bunker off / RC issue). **Stop it (Ctrl-C)
+before power-cycling the Bunker**, then `mb` again.
+
+Manual equivalent:
 ```bash
 source ~/mb-venv/bin/activate && cd ~/minibunker-workshop/real_pi
-sudo ip link set can0 up type can bitrate 500000     # if not already up
+bash can_up.sh                # bounce can0 up (gs_usb)
 
 python run.py                 # autonomous: needs mission/follow_item: ball|cone
 python run.py --headless      # same, no OpenCV window (SSH without X)
