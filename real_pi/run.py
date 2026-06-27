@@ -272,10 +272,11 @@ def main():
                 extra = ""
                 if bunker is not None:
                     s = bunker.state
+                    txerr = f" CAN-TX-ERR({bunker.tx_error})" if bunker.tx_error else ""
                     extra = (f" | batt={s.battery_voltage:.1f}V ctrl_mode={s.control_mode}"
                              f" vstate={s.vehicle_state}"
                              f"{' ESTOP!' if s.estop_engaged else ''}"
-                             f" actual_v={s.actual_linear:+.2f}")
+                             f" actual_v={s.actual_linear:+.2f}{txerr}")
                 print(f"[{state:8s}] armed={controls.armed} cmd v={lin:+.2f} w={ang:+.2f}{extra}")
 
             # keep the loop at rate_hz (also paces the CAN motion frames)
@@ -312,7 +313,7 @@ def _snapshot(state, controls, lin, ang, follow, backend, ps, n_dets, bunker, ra
             "battery": round(s.battery_voltage, 1), "ctrl_mode": s.control_mode,
             "vehicle_state": s.vehicle_state, "estop": s.estop_engaged,
             "error_code": s.error_code, "actual_lin": round(s.actual_linear, 3),
-            "can": True,
+            "can": True, "tx_error": bunker.tx_error,
         })
     else:
         snap["can"] = False

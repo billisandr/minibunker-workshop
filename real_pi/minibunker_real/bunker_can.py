@@ -103,6 +103,8 @@ class BunkerCAN:
         self.hw_max_linear = float(hw_max_linear)
         self.hw_max_angular = float(hw_max_angular)
         self.state = BunkerState()
+        self.tx_error = None        # last TX failure str (e.g. "Network is down")
+        self.tx_error_count = 0     # cumulative failed sends
         if bus is not None:
             self.bus = bus          # injected (tests / custom transport)
         else:
@@ -134,21 +136,34 @@ class BunkerCAN:
     def poll(self, timeout=0.0):
         """Drain pending RX frames into self.state. Returns the updated state.
 
-        Non-blocking by default (timeout=0). Call once per loop tick.
+        Non-blocking by default (timeout=0). Call once per loop tick. Tolerant of
+        a down/erroring bus (a CAN-down read just yields no frames).
         """
-        while True:
-            msg = self.bus.recv(timeout=timeout)
-            if msg is None:
-                break
-            self._decode(msg)
-            timeout = 0.0   # after the first, only drain what is already queued
+        try:
+            while True:
+                msg = self.bus.recv(timeout=timeout)
+                if msg is None:
+                    break
+                self._decode(msg)
+                timeout = 0.0   # after the first, only drain what is queued
+        except Exception:  # noqa: BLE001 — never crash the loop on a bad read
+            pass
         return self.state
 
     # -- internals ----------------------------------------------------------
-    def _send(self, can_id: int, data: bytes):
-        msg = can.Message(arbitration_id=can_id, data=data,
-                          is_extended_id=False)
-        self.bus.send(msg)
+    def _send(self, can_id: int, data: bytes) -> bool:
+        """Best-effort send. Never raises — a down bus (Errno 100) must not crash
+        the control loop; it just means no frame went out (the base then stops on
+        its own). Tracks the last error for telemetry."""
+        try:
+            self.bus.send(can.Message(arbitration_id=can_id, data=data,
+                                      is_extended_id=False))
+            self.tx_error = None
+            return True
+        except Exception as exc:  # noqa: BLE001
+            self.tx_error = str(exc)
+            self.tx_error_count += 1
+            return False
 
     def _decode(self, msg):
         data = bytes(msg.data)
@@ -165,12 +180,11 @@ class BunkerCAN:
             self.state.last_rx = time.monotonic()
 
     def shutdown(self):
-        """Best-effort safe teardown: stop, standby, close the bus."""
+        """Best-effort safe teardown: stop, standby, close the bus. Never raises
+        (the bus may already be down — _send swallows that)."""
+        self.stop()          # _send is best-effort (won't raise)
+        self.set_standby()
         try:
-            self.stop()
-            self.set_standby()
-        finally:
-            try:
-                self.bus.shutdown()
-            except Exception:  # noqa: BLE001
-                pass
+            self.bus.shutdown()
+        except Exception:  # noqa: BLE001
+            pass

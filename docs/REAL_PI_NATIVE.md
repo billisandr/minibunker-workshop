@@ -237,6 +237,25 @@ i.e. **vehicle_state=ESTOP** (e-stop engaged ✓), **control_mode=STANDBY** (not
 has enabled CAN yet), **battery 25.6 V** (healthy), error_code `0x80`. Seeing a
 sane battery + the ESTOP flag means the full RX path works.
 
+### 5.3 Troubleshooting — `OSError 100 Network is down` / bus-off
+`can0` opens even when the link is **down**, so `run.py` can start and then every
+send fails. If a node transmits with **nothing ACKing** (Bunker off, CAN cable
+loose, wrong bitrate), the controller hits **bus-off** and the kernel marks the
+interface down → `CanOperationError: Network is down`. The driver is hardened
+(sends are best-effort, the loop/shutdown never crash, and the panel shows a **CAN
+TX error** banner), but you still need to fix the bus:
+
+```bash
+ip -details link show can0     # look for "state BUS-OFF" / no "state UP", + error counters
+# bring it up with auto-recovery from bus-off, and confirm the Bunker is ACKing:
+sudo ip link set can0 down
+sudo ip link set can0 up type can bitrate 500000 restart-ms 100
+candump can0                   # you MUST see 0x211/0x221 from the base (Bunker on + wired)
+```
+`restart-ms 100` auto-restarts the controller after a transient bus-off. If
+`candump` stays silent, the **Bunker isn't transmitting** — check it's powered on,
+the CAN cable is seated, and the bitrate is 500000.
+
 ---
 
 ## 6. Autonomous-follow dry-run — worked example (e-stop ENGAGED)

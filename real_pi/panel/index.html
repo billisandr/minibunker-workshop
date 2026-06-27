@@ -27,6 +27,8 @@
   #cam { width:100%; border-radius:8px; background:#000; aspect-ratio:4/3; object-fit:contain; }
   #estop { display:none; margin:0 0 12px; padding:8px 12px; border-radius:8px;
            background:#3a2a00; color:var(--amb); border:1px solid var(--amb); font-weight:bold;}
+  #canerr { display:none; margin:0 0 12px; padding:8px 12px; border-radius:8px;
+            background:#3a1010; color:#ff6b6b; border:1px solid var(--red); font-weight:bold;}
   .grid { display:grid; grid-template-columns:auto 1fr; gap:4px 14px; }
   .grid .k { color:var(--mut); }
   .grid .v { text-align:right; }
@@ -58,6 +60,7 @@
   <div class="card">
     <h2>Camera</h2>
     <div id="estop">⚠ E-STOP ENGAGED — motors disabled</div>
+    <div id="canerr">⚠ CAN TX error — is can0 up and the Bunker on?</div>
     <img id="cam" alt="camera stream">
     <div class="hint">Live annotated stream (MJPEG). Boxes = detections; HUD = state.</div>
   </div>
@@ -176,6 +179,9 @@ async function poll() {
                                : s.vehicle_state===0 ? pill("NORMAL","#2ea043") : s.vehicle_state;
       $("t_actual").textContent= (s.actual_lin>=0?"+":"") + s.actual_lin + " m/s";
       $("estop").style.display = s.estop ? "block" : "none";
+      const ce = $("canerr");
+      ce.style.display = s.tx_error ? "block" : "none";
+      if (s.tx_error) ce.textContent = "⚠ CAN TX error: " + s.tx_error;
     } else {
       $("t_batt").textContent="(no CAN)"; $("t_mode").textContent="–";
       $("t_vstate").textContent="–"; $("t_actual").textContent="–";
