@@ -198,10 +198,11 @@ everything in this section — these are read-only checks; nothing should move.
 ### 5.1 Interface up + raw sanity
 ```bash
 ip -br link show | grep -i can          # confirm a can0 appeared
-# bring it up if it isn't already (a CAN HAT may auto-config):
-sudo ip link set can0 up type can bitrate 500000
+bash real_pi/can_up.sh                   # bounce can0 up @ 500k (gs_usb-safe)
 candump can0                            # Ctrl-C after you see frames
 ```
+(`can_up.sh` is just `ip link set can0 down; up type can bitrate 500000` — the
+gs_usb adapter needs this each session and after any bus-off; see §5.3.)
 On the real Bunker you should see a steady stream — these are the actual IDs we
 saw (system/motion/RC/odometry/actuator state):
 ```
@@ -240,21 +241,28 @@ sane battery + the ESTOP flag means the full RX path works.
 ### 5.3 Troubleshooting — `OSError 100 Network is down` / bus-off
 `can0` opens even when the link is **down**, so `run.py` can start and then every
 send fails. If a node transmits with **nothing ACKing** (Bunker off, CAN cable
-loose, wrong bitrate), the controller hits **bus-off** and the kernel marks the
-interface down → `CanOperationError: Network is down`. The driver is hardened
-(sends are best-effort, the loop/shutdown never crash, and the panel shows a **CAN
-TX error** banner), but you still need to fix the bus:
+loose, wrong bitrate), the controller hits **bus-off**; on the **gs_usb USB-CAN
+adapter used here** that latches the interface to `state STOPPED / DOWN` and it
+**cannot auto-recover** — recovery is always a manual `down`/`up` bounce. The
+driver is hardened (sends are best-effort, the loop/shutdown never crash, the
+panel shows a **CAN TX error** banner), so you can bounce the bus *without*
+restarting `run.py`:
 
 ```bash
-ip -details link show can0     # look for "state BUS-OFF" / no "state UP", + error counters
-# bring it up with auto-recovery from bus-off, and confirm the Bunker is ACKing:
+ip -details link show can0     # gs_usb shows "can state STOPPED" + "state DOWN" when faulted
 sudo ip link set can0 down
-sudo ip link set can0 up type can bitrate 500000 restart-ms 100
+sudo ip link set can0 up type can bitrate 500000      # NO restart-ms on gs_usb!
 candump can0                   # you MUST see 0x211/0x221 from the base (Bunker on + wired)
 ```
-`restart-ms 100` auto-restarts the controller after a transient bus-off. If
-`candump` stays silent, the **Bunker isn't transmitting** — check it's powered on,
-the CAN cable is seated, and the bitrate is 500000.
+
+> **gs_usb gotcha:** `... up type can bitrate 500000 restart-ms 100` **fails** with
+> `Device doesn't support restart from Bus Off` and leaves the link down. Omit
+> `restart-ms`. (A MCP2515 CAN HAT *does* support it; gs_usb does not.)
+
+If `candump` stays silent after a clean `up`, the **Bunker isn't transmitting** —
+check it's powered on, the CAN cable is seated, and the bitrate is 500000. To
+bring `can0` up automatically at boot, add a `systemd-networkd` `.network`/`.link`
+or a tiny `ip link` unit (optional; otherwise re-run the `up` each session).
 
 ---
 
