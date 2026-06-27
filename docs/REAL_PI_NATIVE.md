@@ -510,6 +510,19 @@ the laptop while the Pi serves only JSON + the MJPEG stream.
   arena light (the sim HSV ranges were tuned for Gazebo, not a real camera).
   Calibration needs `detector/backend: hsv`.
 
+**How to tune (HSV), in order** — hold the object in view and watch the mask:
+1. **Raise `S low`** (saturation) — shadows/greys are low-saturation, so this is
+   the biggest lever for dropping "shadow reads as a ball".
+2. **Raise `V low`** (value/brightness) to cut dark regions; **tighten `H low`/`H
+   high`** around the object's actual hue (green ≈ 40–85, orange ≈ 5–25 on OpenCV's
+   0–179 hue scale).
+3. **Raise `min_area`** to ignore small speckle blobs.
+
+Goal: a **clean solid blob on the object and black everywhere else**. Then copy the
+snippet into `config.yaml` so it persists. If green can't be separated from the
+floor/shadows even when tuned, that's when the **CNN backend** (`detector/backend:
+cnn` + a trained `.onnx`) earns its keep.
+
 ---
 
 ## 9. Status summary (2026-06-26, `raspberrypi2`)
