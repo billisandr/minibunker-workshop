@@ -21,6 +21,7 @@
 # So on the Pi, pip only needs python-can below. (On a non-Pi dev box without
 # system numpy/cv2, also `pip install numpy opencv-python PyYAML`.)
 python-can>=4.0           # socketcan driver for the Bunker CAN bus
+flask>=2.2                # the optional --web control panel (pure-python, light)
 
 # Optional CNN runtime (HSV is the zero-dependency default). Uncomment one:
 # onnxruntime>=1.16        # arm64 wheels exist; default CNN runtime

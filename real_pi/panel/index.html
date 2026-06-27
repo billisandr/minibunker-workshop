@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MiniBunker — native panel</title>
+<style>
+  :root { --bg:#0e1116; --panel:#161b22; --line:#2b3340; --fg:#e6edf3;
+          --mut:#8b949e; --grn:#2ea043; --red:#da3633; --amb:#d29922; --cy:#39c5cf; }
+  * { box-sizing: border-box; }
+  body { margin:0; font:14px/1.45 ui-monospace,Menlo,Consolas,monospace;
+         background:var(--bg); color:var(--fg); }
+  header { display:flex; align-items:center; gap:12px; padding:10px 16px;
+           background:var(--panel); border-bottom:1px solid var(--line); flex-wrap:wrap;}
+  header h1 { font-size:15px; margin:0; letter-spacing:.5px; }
+  header .api { margin-left:auto; display:flex; align-items:center; gap:6px; color:var(--mut);}
+  header input { background:#0b0f14; color:var(--fg); border:1px solid var(--line);
+                 border-radius:6px; padding:4px 8px; width:230px; font:inherit; }
+  #conn { font-weight:bold; }
+  .wrap { display:grid; grid-template-columns: 1.3fr 1fr; gap:16px; padding:16px;
+          max-width:1100px; margin:0 auto; }
+  @media (max-width:820px){ .wrap{ grid-template-columns:1fr; } }
+  .card { background:var(--panel); border:1px solid var(--line); border-radius:10px;
+          padding:14px; }
+  .card h2 { font-size:12px; text-transform:uppercase; letter-spacing:1px;
+             color:var(--mut); margin:0 0 10px; }
+  #cam { width:100%; border-radius:8px; background:#000; aspect-ratio:4/3; object-fit:contain; }
+  #estop { display:none; margin:0 0 12px; padding:8px 12px; border-radius:8px;
+           background:#3a2a00; color:var(--amb); border:1px solid var(--amb); font-weight:bold;}
+  .grid { display:grid; grid-template-columns:auto 1fr; gap:4px 14px; }
+  .grid .k { color:var(--mut); }
+  .grid .v { text-align:right; }
+  .pill { display:inline-block; padding:1px 8px; border-radius:999px; font-weight:bold; }
+  .arm-row { display:flex; gap:10px; margin:4px 0 12px; }
+  button { font:inherit; cursor:pointer; border:1px solid var(--line); border-radius:8px;
+           background:#1c2430; color:var(--fg); padding:10px 12px; }
+  button:active { transform:translateY(1px); }
+  .arm { flex:1; font-weight:bold; }
+  .arm.on  { background:var(--red); border-color:var(--red); }
+  .arm.off { background:var(--grn); border-color:var(--grn); }
+  .seg { display:flex; gap:6px; margin-bottom:12px; }
+  .seg button { flex:1; }
+  .seg button.sel { background:var(--cy); border-color:var(--cy); color:#04222a; font-weight:bold; }
+  .pad { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; max-width:240px; }
+  .pad button { padding:14px 0; font-size:16px; }
+  .pad .sp { visibility:hidden; }
+  .hint { color:var(--mut); font-size:12px; margin-top:8px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>🛰️ MiniBunker · native panel</h1>
+  <span id="conn" style="color:var(--mut)">connecting…</span>
+  <span class="api">API <input id="api" placeholder="(same origin)"></span>
+</header>
+
+<div class="wrap">
+  <div class="card">
+    <h2>Camera</h2>
+    <div id="estop">⚠ E-STOP ENGAGED — motors disabled</div>
+    <img id="cam" alt="camera stream">
+    <div class="hint">Live annotated stream (MJPEG). Boxes = detections; HUD = state.</div>
+  </div>
+
+  <div class="card">
+    <h2>Control</h2>
+    <div class="arm-row">
+      <button id="armBtn"   class="arm off" onclick="setArm(true)">ARM</button>
+      <button id="disarmBtn" class="arm" onclick="setArm(false)">DISARM</button>
+    </div>
+
+    <h2>Mission (follow)</h2>
+    <div class="seg" id="mission">
+      <button data-m="none" onclick="setMission('none')">none</button>
+      <button data-m="ball" onclick="setMission('ball')">ball</button>
+      <button data-m="cone" onclick="setMission('cone')">cone</button>
+    </div>
+
+    <h2>Teleop <span class="hint">(mission=none)</span></h2>
+    <div class="pad">
+      <span class="sp"></span>
+      <button data-k="w">▲</button>
+      <span class="sp"></span>
+      <button data-k="j">◄</button>
+      <button data-k="x">■</button>
+      <button data-k="l">►</button>
+      <span class="sp"></span>
+      <button data-k="s">▼</button>
+      <span class="sp"></span>
+    </div>
+    <div class="hint">Hold a button (or keys W/S/J/L, X=stop, A=ARM, D=DISARM).
+      Auto-stops via the watchdog if you release / lose the link.</div>
+
+    <h2 style="margin-top:14px">Telemetry</h2>
+    <div class="grid" id="tele">
+      <span class="k">state</span><span class="v" id="t_state">–</span>
+      <span class="k">armed</span><span class="v" id="t_armed">–</span>
+      <span class="k">cmd v / ω</span><span class="v" id="t_cmd">–</span>
+      <span class="k">battery</span><span class="v" id="t_batt">–</span>
+      <span class="k">ctrl_mode</span><span class="v" id="t_mode">–</span>
+      <span class="k">vehicle_state</span><span class="v" id="t_vstate">–</span>
+      <span class="k">actual v</span><span class="v" id="t_actual">–</span>
+      <span class="k">target</span><span class="v" id="t_target">–</span>
+      <span class="k">hazard</span><span class="v" id="t_hazard">–</span>
+      <span class="k">backend</span><span class="v" id="t_backend">–</span>
+    </div>
+  </div>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+const apiInput = $("api");
+// API base persists across reloads (handy for the laptop-served mode)
+apiInput.value = localStorage.getItem("mb_api") || "";
+const base = () => apiInput.value.replace(/\/$/, "");
+function applyApi() {
+  localStorage.setItem("mb_api", apiInput.value);
+  $("cam").src = base() + "/stream.mjpg?" + Date.now();
+}
+apiInput.addEventListener("change", applyApi);
+
+async function post(path) {
+  try { await fetch(base() + path, { method: "POST" }); } catch (e) {}
+}
+function setArm(on)      { post("/api/arm?armed=" + (on ? 1 : 0)); }
+function setMission(m)   { post("/api/mission?follow=" + m); }
+
+// --- press-and-hold teleop (buttons + keyboard share one timer) ---
+let holdKey = null;
+setInterval(() => { if (holdKey) post("/api/teleop?key=" + holdKey); }, 150);
+function startHold(k){ holdKey = k; post("/api/teleop?key=" + k); }
+function stopHold(){ if (holdKey){ holdKey = null; post("/api/teleop?key=x"); } }
+
+document.querySelectorAll(".pad button").forEach(b => {
+  const k = b.dataset.k;
+  if (k === "x") { b.onclick = () => post("/api/teleop?key=x"); return; }
+  b.addEventListener("mousedown", () => startHold(k));
+  b.addEventListener("touchstart", e => { e.preventDefault(); startHold(k); });
+  ["mouseup","mouseleave","touchend"].forEach(ev => b.addEventListener(ev, stopHold));
+});
+document.addEventListener("keydown", e => {
+  if (e.repeat) return;
+  const k = e.key.toLowerCase();
+  if (k === "a") setArm(true);
+  else if (k === "d") setArm(false);
+  else if ("wsjl".includes(k)) startHold(k);
+  else if (k === "x") post("/api/teleop?key=x");
+});
+document.addEventListener("keyup", e => {
+  if ("wsjl".includes(e.key.toLowerCase())) stopHold();
+});
+
+// --- telemetry poll ---
+function pill(txt, color){ return `<span class="pill" style="background:${color};color:#04121a">${txt}</span>`; }
+async function poll() {
+  try {
+    const r = await fetch(base() + "/api/state", { cache: "no-store" });
+    const s = await r.json();
+    $("conn").textContent = "● connected"; $("conn").style.color = "var(--grn)";
+    $("t_state").textContent  = s.state;
+    $("t_armed").innerHTML    = s.armed ? pill("ARMED","#da3633") : pill("DISARMED","#2ea043");
+    $("t_cmd").textContent    = `${(s.cmd_lin>=0?"+":"")}${s.cmd_lin} / ${(s.cmd_ang>=0?"+":"")}${s.cmd_ang}`;
+    $("t_backend").textContent= s.backend + "  (" + s.n_dets + " dets)";
+    $("t_target").innerHTML   = s.target_seen ? pill("seen cx="+s.target_cx,"#39c5cf") : "—";
+    $("t_hazard").innerHTML   = s.hazard_seen ? pill(s.hazard_danger?"DANGER":"seen","#d29922") : "—";
+    // mission highlight
+    document.querySelectorAll("#mission button").forEach(b =>
+      b.classList.toggle("sel", b.dataset.m === s.follow));
+    // arm button highlight
+    $("armBtn").classList.toggle("on", s.armed);
+    $("armBtn").classList.toggle("off", !s.armed);
+    if (s.can) {
+      $("t_batt").textContent  = s.battery + " V";
+      $("t_mode").textContent  = s.ctrl_mode + (s.ctrl_mode===1?" (CAN)":s.ctrl_mode===0?" (STBY)":"");
+      $("t_vstate").innerHTML  = s.estop ? pill("ESTOP","#d29922")
+                               : s.vehicle_state===0 ? pill("NORMAL","#2ea043") : s.vehicle_state;
+      $("t_actual").textContent= (s.actual_lin>=0?"+":"") + s.actual_lin + " m/s";
+      $("estop").style.display = s.estop ? "block" : "none";
+    } else {
+      $("t_batt").textContent="(no CAN)"; $("t_mode").textContent="–";
+      $("t_vstate").textContent="–"; $("t_actual").textContent="–";
+    }
+  } catch (e) {
+    $("conn").textContent = "○ no connection"; $("conn").style.color = "var(--red)";
+  }
+  setTimeout(poll, 300);
+}
+applyApi();
+poll();
+</script>
+</body>
+</html>

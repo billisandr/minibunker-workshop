@@ -31,7 +31,28 @@ python run.py --no-can --save-video /tmp/mb_run.mp4
 
 # full station (boots DISARMED; type 'a'<Enter> to ARM). Needs can0 + the robot:
 python run.py
+
+# with the web control panel (live video + ARM + teleop in the browser):
+python run.py --web                 # -> http://raspberrypi2.local:8080
 ```
+
+## Web control panel (`--web`)
+
+A tiny Flask panel (the native replacement for the sim's Streamlit UI, which is
+ROS-only): live MJPEG video, telemetry, ARM/DISARM, mission switch, hold-to-drive
+teleop. It shares the **same Controls** as the keyboard (one motion owner). Two
+ways to run it (details in **[../docs/REAL_PI_NATIVE.md](../docs/REAL_PI_NATIVE.md) §8b**):
+
+```bash
+# A) on the Pi (recommended): loop + panel in one process
+python run.py --web                          # browse http://raspberrypi2.local:8080
+
+# B) page hosted on the laptop, API on the Pi:
+python run.py --web                          # on the Pi
+python panel/serve_laptop.py                 # on the laptop -> http://localhost:8090
+#   then set the page's "API base" to http://raspberrypi2.local:8080
+```
+The physical e-stop always overrides; the panel shows an ESTOP banner.
 
 A safe full-pipeline check **with the e-stop engaged** (the rover computes a
 ball-follow but can't move) is in **[../docs/REAL_PI_NATIVE.md](../docs/REAL_PI_NATIVE.md) §6**

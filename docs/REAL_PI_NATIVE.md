@@ -31,8 +31,9 @@ On `raspberrypi2` (Raspberry Pi OS **Bookworm 64-bit**, Pi 5, 8 GB) we chose to
   its core in the sim nodes, so it ports almost verbatim.
 
 What we give up (know this): **sim↔real parity** (the native stack can't be run
-in Gazebo), the Streamlit/rosbridge UI, and live mission-switching. The drive
-layer is re-implemented as a direct CAN driver (§2) instead of `bunker_base`.
+in Gazebo) and the Streamlit/rosbridge UI — replaced by a native Flask panel with
+its own live mission-switching (§8b). The drive layer is re-implemented as a
+direct CAN driver (§2) instead of `bunker_base`.
 
 ---
 
@@ -40,9 +41,9 @@ layer is re-implemented as a direct CAN driver (§2) instead of `bunker_base`.
 
 ```
 real_pi/
-  run.py              # the station: ONE loop, ARM gate, watchdog, e-stop, viz/record
+  run.py              # the station: ONE loop, Controls hub, ARM gate, watchdog, viz/record/web
   config.yaml         # ROS-free subset of minibunker.yaml + a can: block
-  requirements.txt    # python-can only (numpy/OpenCV/PyYAML come from apt — see §3)
+  requirements.txt    # python-can + flask (numpy/OpenCV/PyYAML come from apt — see §3)
   minibunker_real/
     config.py         # dotted-key YAML loader (replaces rospy.get_param)
     camera.py         # picamera2 -> V4L2 -> video/synthetic frame source
@@ -50,6 +51,10 @@ real_pi/
     perception_state.py  # role-based 7-slot packing — lifted from detector_node
     fsm.py            # behaviour FSM -> (linear, angular) — lifted from behavior_node
     bunker_can.py     # NEW: AgileX protocol-v2 CAN driver (replaces bunker_base)
+    webpanel.py       # NEW: optional Flask control panel (--web), shares Controls
+  panel/
+    index.html        # the panel page (Pi-served or laptop-served; configurable API base)
+    serve_laptop.py   # static host for the laptop-server option
   tests/
     test_bunker_can.py  # frame encoding + (Pi) vcan0 loopback
     test_fsm.py         # FSM safety + transitions
@@ -355,6 +360,51 @@ Then view the single file via (a) the HTTP server (`cd /tmp && python3 -m http.s
 8000` → open `http://raspberrypi2.local:8000/mb_run.mp4`) or (b) `scp` it to the
 laptop. If an `.mp4` comes out empty on the Pi's OpenCV build, use `--save-video
 /tmp/mb_run.avi` (MJPG) or the ffmpeg route.
+
+---
+
+## 8b. Web control panel (`--web`)
+
+A tiny **Flask** panel — live annotated video (MJPEG), telemetry, ARM/DISARM,
+mission switch, and press-and-hold teleop — for the native stack. It shares the
+**same `Controls` object** as the keyboard, so it is just another input to the one
+loop (still a single motion owner on CAN). The sim's Streamlit/rosbridge UI does
+**not** work here (no ROS); this is its native replacement. Needs `pip install
+flask` (in `requirements.txt`).
+
+Files: `minibunker_real/webpanel.py` (server) + `panel/index.html` (page) +
+`panel/serve_laptop.py` (laptop static-host helper).
+
+### Option A — run the panel ON THE PI (recommended)
+```bash
+source ~/mb-venv/bin/activate && cd ~/minibunker-workshop/real_pi
+python run.py --web                 # control loop + panel in one process
+#   --web implies headless; --web-port 8080 (default), --web-host 0.0.0.0
+```
+Then on your **laptop** open `http://raspberrypi2.local:8080` (leave the page's
+"API base" field blank = same origin). ARM, switch mission, drive — all from the
+browser, with the live camera.
+
+### Option B — run the panel server ON THE LAPTOP
+The control loop + API **always** run on the Pi (`python run.py --web`), because
+that's where the CAN + camera are. Option B only moves the *static page* to the
+laptop and points it at the Pi's API (CORS is open):
+```bash
+# on the PI (as in Option A):
+python run.py --web
+# on the LAPTOP, from real_pi/panel/:
+python serve_laptop.py              # -> http://localhost:8090
+```
+Open `http://localhost:8090`, set the page's **API base** to
+`http://raspberrypi2.local:8080`. Use this if you want to host/iterate the UI from
+the laptop while the Pi serves only JSON + the MJPEG stream.
+
+> Endpoints: `GET /api/state`, `GET /stream.mjpg`, `POST /api/arm?armed=1`,
+> `POST /api/teleop?key=w`, `POST /api/mission?follow=ball`. POSTs use query params
+> (CORS-"simple", no preflight) so the laptop-served page can call the Pi.
+> **Safety unchanged:** the panel ARM flows through the same FSM ARM gate + clamp
+> + watchdog; the **physical e-stop always overrides** (the panel shows an ESTOP
+> banner). Web teleop auto-expires via the watchdog on release / link loss.
 
 ---
 
