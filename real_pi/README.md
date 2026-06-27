@@ -36,6 +36,16 @@ python run.py
 python run.py --web                 # -> http://raspberrypi2.local:8080
 ```
 
+**One-command start (recommended):** `start_real_pi.sh` bounces CAN up (gs_usb),
+verifies the Bunker is on the bus, then launches `run.py --web`. Install the alias
+once, then just run `mb` (Bunker ON, **RC transmitter OFF**, e-stop in hand):
+```bash
+echo "alias mb='bash ~/minibunker-workshop/real_pi/start_real_pi.sh'" >> ~/.bashrc && source ~/.bashrc
+mb                # safe ordered start + --web panel   (mb -f skips the CAN check)
+```
+Stop it (Ctrl-C) **before** power-cycling the Bunker, then `mb` again. (Standalone
+CAN bring-up: `bash can_up.sh`.)
+
 ## Web control panel (`--web`)
 
 A tiny Flask panel (the native replacement for the sim's Streamlit UI, which is
@@ -76,16 +86,19 @@ See the doc **§8** for details.
 Boots **DISARMED** · hard caps in `config.yaml → behavior/limits`, re-clamped to
 the Bunker HW ceiling (1.5 m/s / 0.785 rad/s) · watchdog zeroes on stall ·
 **Ctrl-C → zero motion + STANDBY**. Keep the e-stop in hand; fenced arena only.
-Validated on the real Bunker with the e-stop **engaged** (full follow pipeline,
-zero motion); first real drive procedure is in the doc **§7**.
+**Real autonomous motion validated** on the Bunker (drove under CAN, `ctrl_mode=1`,
+`actual_v` tracking the follow command). **The RC transmitter must be OFF** — RC
+overrides CAN and the base will fault to EXCEPTION (doc **§5.4**).
 
 ## Files
 
 | File | What |
 | --- | --- |
-| `run.py` | the loop: ARM gate, watchdog, e-stop, in-process teleop |
+| `run.py` | the loop: Controls hub (stdin + web), ARM gate, watchdog, e-stop, viz/record |
 | `config.yaml` | all knobs (ROS-free subset of `minibunker.yaml` + `can:`) |
+| `start_real_pi.sh` · `can_up.sh` | one-command start (`mb`) · gs_usb CAN bring-up |
 | `minibunker_real/bunker_can.py` | AgileX protocol-v2 CAN driver (NEW) |
+| `minibunker_real/webpanel.py` · `panel/` | Flask `--web` panel + page (Pi/laptop served) |
 | `minibunker_real/{detector,perception_state,fsm}.py` | lifted from the sim ROS nodes |
 | `minibunker_real/camera.py` | picamera2 / V4L2 / video / synthetic source |
 | `tests/` | FSM, detector, CAN (incl. vcan0 loopback) |

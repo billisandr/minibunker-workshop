@@ -6,11 +6,14 @@ A Space Summer School station: an AgileX **Bunker Mini 2.0** tracked rover that 
 reactive *space-mining* behaviour. Runs identically in **Gazebo simulation** and on the
 **real robot**, fully **YAML-configurable**, fronted by a **Streamlit** knob panel.
 
-> **Status: implemented (Phases 1–6 code), pending build + hardware validation.**
-> The sim path (detector → behaviour → Gazebo) and the Streamlit UI are written; the
-> real-robot path (CAN + Pi camera) and the CNN training pipeline are scaffolded. The
-> Docker image build and the real robot have **not** been run on hardware yet. The
-> design rationale lives in **[plan.md](plan.md)**; start with **[docs/QUICKSTART.md](docs/QUICKSTART.md)**.
+> **Status: sim validated; real robot driving on the native Pi path.**
+> The sim path (detector → behaviour → Gazebo) and the Streamlit UI are validated.
+> For the real robot we run a **native no-Docker/no-ROS stack** on the Pi
+> ([real_pi/](real_pi/), [docs/REAL_PI_NATIVE.md](docs/REAL_PI_NATIVE.md)): the
+> Bunker Mini has **driven autonomously under CAN** (camera → HSV → FSM → CAN), with
+> a Flask control panel; only speed/HSV tuning + the RC-off operating procedure
+> remain. The CNN training pipeline is scaffolded. The design rationale lives in
+> **[plan.md](plan.md)**; start with **[docs/QUICKSTART.md](docs/QUICKSTART.md)**.
 
 ## Gallery
 
@@ -84,9 +87,10 @@ docker/   start_sim.sh   start_real.sh   training/   docs/
 
 1. Build the image + bring the sim up (`start_sim.sh`); fix any submodule build issues.
 2. Train the CNN ([docs/TRAINING.md](docs/TRAINING.md)) and validate it in sim.
-3. Real-robot bring-up on the Pi — **native path done & validated to the e-stop dry-run**
-   ([docs/REAL_PI_NATIVE.md](docs/REAL_PI_NATIVE.md)); first real drive is the last gate.
-   (Docker/ROS alternative: [docs/HARDWARE_SETUP.md](docs/HARDWARE_SETUP.md).)
+3. Real-robot on the Pi — **native path driving** ([docs/REAL_PI_NATIVE.md](docs/REAL_PI_NATIVE.md)):
+   autonomous follow has moved the Bunker under CAN. Remaining: keep the **RC off**
+   (it overrides CAN → EXCEPTION), tune speed caps + HSV under arena light, optional
+   autostart. (Docker/ROS alternative: [docs/HARDWARE_SETUP.md](docs/HARDWARE_SETUP.md).)
 4. Phase 7 docs: participant handout + instructor cards (HTML, house style) — best done
    once the sim is validated so they can carry real screenshots.
 
