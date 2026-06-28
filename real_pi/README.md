@@ -3,7 +3,7 @@
 The Raspberry Pi 5 real-robot path as a **single Python process**:
 
 ```
-camera → detector (HSV/CNN) → perception_state → behaviour FSM → CAN → Bunker Mini
+camera → detector (HSV) → perception_state + distance → behaviour FSM → CAN → Bunker Mini
 ```
 
 This is the lightweight alternative to the ROS-in-Docker stack

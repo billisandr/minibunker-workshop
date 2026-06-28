@@ -520,8 +520,9 @@ the laptop while the Pi serves only JSON + the MJPEG stream.
 
 Goal: a **clean solid blob on the object and black everywhere else**. Then copy the
 snippet into `config.yaml` so it persists. If green can't be separated from the
-floor/shadows even when tuned, that's when the **CNN backend** (`detector/backend:
-cnn` + a trained `.onnx`) earns its keep.
+floor/shadows even when tuned, that's the inherent limit of colour rules — a learned
+**CNN** backend (`detector/backend: cnn` + a trained `.onnx`) is scaffolded for that
+but is **out of the current workshop's scope** (HSV is the path here).
 
 ### Distance (pixel estimate)
 A one-point pinhole estimate lives in the **Distance** subsection of the
@@ -614,6 +615,7 @@ to the real Bunker Mini; battery 25.6 V; system libs numpy 1.24.2, cv2 4.6.0.
   fenced arena. This is the only remaining gate — everything upstream is validated.
 - **HSV tuning** under the actual arena lighting (reduce the APPROACH→SEARCH blips).
 - **Autostart (optional):** a `systemd` unit for `run.py` once drive is trusted.
-- **CNN:** drop a trained `.onnx` in and set `detector/backend: cnn` (HSV default).
+- **CNN (future / out of current scope):** drop a trained `.onnx` in and set
+  `detector/backend: cnn` for lighting-robust detection (HSV is the workshop default).
 - If a unit reports **protocol v1**, add the v1 frames to `bunker_can.py`.
 ```
