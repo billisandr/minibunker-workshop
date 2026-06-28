@@ -77,7 +77,7 @@ behavior:
     # --- per-mission completion (metres; need distance calibration) ---
     ball_retrieve_m: 1.2        # follow=ball: reach this -> RETRIEVED (collected)
                                 #   -> log + UI message -> mission none + DISARM
-    cone_danger_m: 1.5          # follow=cone: reach this -> DANGER -> back up ->
+    cone_danger_m: 1.1          # follow=cone: reach this -> DANGER -> back up ->
                                 #   -> UI message -> mission none + DISARM
     cone_backup_sec: 1.0        # how long to reverse on cone-danger ("1 step")
     cone_backup_speed: -0.15    # reverse speed (m/s) during that backup

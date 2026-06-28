@@ -179,5 +179,3 @@ substitute for the e-stop. Full ritual: [docs/REAL_PI_NATIVE.md](docs/REAL_PI_NA
   for lighting-robust detection.
 
 ---
-
-*Space Summer School · Technical University of Crete · SenseLAB*
