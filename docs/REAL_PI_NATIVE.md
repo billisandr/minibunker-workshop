@@ -540,6 +540,11 @@ To make the rover **stop at a real distance**, set
 `behavior/approach/collect_distance_m: <metres>` — the FSM then COLLECTs at that
 distance for a calibrated class, and falls back to `collect_bbox_frac` otherwise.
 
+**Detection labels:** each box is annotated with a **short name + live distance**
+once calibrated (e.g. `b 0.85m`), else name + score (`b 0.79`). Set the short
+names in `detector/display_names` (e.g. `green_ball: b`, `cone: c`) — annotation
+only; it does **not** change `mission/follow_item` or the HSV/distance class keys.
+
 ---
 
 ## 9. Status summary (2026-06-26, `raspberrypi2`)

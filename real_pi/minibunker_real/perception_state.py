@@ -54,15 +54,28 @@ def pack(dets, w, h, target_cls, hazard_classes, cone_danger_frac=0.35):
     return st
 
 
-def annotate(bgr, dets, st, backend_name, target_cls, state_name):
-    """Draw boxes + a HUD on a copy of the frame (for the debug window / file)."""
+def annotate(bgr, dets, st, backend_name, target_cls, state_name,
+             display=None, dist_est=None):
+    """Draw boxes + a HUD on a copy of the frame (for the debug window / file).
+
+    display:  {class_int: short label} from config detector/display_names (falls
+              back to the full class name). dist_est: a DistanceEstimator; when a
+              class is distance-calibrated the box label shows metres instead of
+              the score, e.g. "b 0.85m"."""
     img = bgr.copy()
+    disp = display or {}
+
+    def name(c):
+        return disp.get(c, LABELS.get(c, "?"))
+
     for (cls, x, y, bw, bh, score) in dets:
         colour = COLOURS.get(cls, (255, 255, 255))
         cv2.rectangle(img, (x, y), (x + bw, y + bh), colour, 2)
-        cv2.putText(img, "%s %.2f" % (LABELS.get(cls, "?"), score),
-                    (x, max(0, y - 6)), cv2.FONT_HERSHEY_SIMPLEX, 0.5, colour, 2)
-    follow = LABELS.get(target_cls, "none")
+        d = dist_est.estimate(LABELS.get(cls), bh) if dist_est is not None else None
+        label = "%s %.2fm" % (name(cls), d) if d else "%s %.2f" % (name(cls), score)
+        cv2.putText(img, label, (x, max(0, y - 6)), cv2.FONT_HERSHEY_SIMPLEX,
+                    0.5, colour, 2)
+    follow = name(target_cls) if target_cls is not None else "none"
     hud = "backend:%s follow:%s state:%s target:%d hazard:%d danger:%d" % (
         backend_name, follow, state_name, int(st[0]), int(st[4]), int(st[5]))
     cv2.putText(img, hud, (8, 20), cv2.FONT_HERSHEY_SIMPLEX, 0.55,

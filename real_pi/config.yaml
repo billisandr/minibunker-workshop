@@ -30,6 +30,11 @@ camera:
 
 detector:
   backend: hsv                # hsv | cnn
+  # Short labels drawn on the detection boxes (annotation only — does NOT change
+  # mission/follow_item or the HSV/distance class keys). e.g. "b" for the ball.
+  display_names:
+    green_ball: b
+    cone: c
   cnn:
     weights: ""               # path to .onnx (leave empty -> empty detections)
     runtime: onnxruntime      # onnxruntime | ultralytics

@@ -157,6 +157,12 @@ def main():
     dist_est = DistanceEstimator(cfg.block("detector/distance", {}))
     cone_danger = float(cfg.get("behavior/avoid/cone_danger_frac", 0.35))
     hazard_items = cfg.get("mission/hazard_items", ["cone"]) or []
+    # short annotation labels (config detector/display_names) -> {class_int: label}
+    display_names = {}
+    for nm, disp in (cfg.get("detector/display_names") or {}).items():
+        ci = NAME_TO_CLASS.get(nm)
+        if ci is not None:
+            display_names[ci] = str(disp)
 
     # --- CAN (optional / overridable) ---
     bunker = None
@@ -260,7 +266,8 @@ def main():
             annotated = None
             if need_annot:
                 annotated = psmod.annotate(frame, dets, ps, backend_name,
-                                           target_cls, state)
+                                           target_cls, state, display=display_names,
+                                           dist_est=dist_est)
                 _draw_status(annotated, controls.armed, lin, ang,
                              bunker.state if bunker else None)
             if not headless:
