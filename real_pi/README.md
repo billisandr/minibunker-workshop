@@ -12,8 +12,8 @@ safety/test procedure are in **[../docs/REAL_PI_NATIVE.md](../docs/REAL_PI_NATIV
 read that first.
 
 > On Raspberry Pi OS, numpy/OpenCV/PyYAML/picamera2 come from **apt** and the venv
-> is `--system-site-packages`; `requirements.txt` only pip-installs `python-can`.
-> Do NOT `pip install numpy` on the Pi (libopenblas shadow — see the doc §3).
+> is `--system-site-packages`; `requirements.txt` only pip-installs `python-can`
+> + `flask`. Do NOT `pip install numpy` on the Pi (libopenblas shadow — see doc §3).
 
 ## Quick start (on the Pi)
 
@@ -29,12 +29,14 @@ python run.py --no-can --save-frames /tmp/mbframes
 # ...or record a video instead:
 python run.py --no-can --save-video /tmp/mb_run.mp4
 
-# full station (boots DISARMED; type 'a'<Enter> to ARM). Needs can0 + the robot:
+# full station (boots DISARMED; type 'r'<Enter> to ARM). Needs can0 + the robot:
 python run.py
 
-# with the web control panel (live video + ARM + teleop in the browser):
+# with the web control panel (live video + calibration + ARM + teleop in the browser):
 python run.py --web                 # -> http://raspberrypi2.local:8080
 ```
+Keys (terminal or panel): **R** = ARM · **F** = DISARM · **q** = quit · teleop
+(mission `none`): **W/A/S/D** drive, **X** stop.
 
 **One-command start (recommended):** `start_real_pi.sh` bounces CAN up (gs_usb),
 verifies the Bunker is on the bus, then launches `run.py --web`. Install the alias
@@ -49,9 +51,20 @@ CAN bring-up: `bash can_up.sh`.)
 ## Web control panel (`--web`)
 
 A tiny Flask panel (the native replacement for the sim's Streamlit UI, which is
-ROS-only): live MJPEG video, telemetry, ARM/DISARM, mission switch, hold-to-drive
-teleop. It shares the **same Controls** as the keyboard (one motion owner). Two
-ways to run it (details in **[../docs/REAL_PI_NATIVE.md](../docs/REAL_PI_NATIVE.md) §8b**):
+ROS-only), sharing the **same Controls** as the keyboard (one motion owner). Two tabs:
+
+- **Drive** — live annotated camera, the **HSV mask** as a second feed, telemetry
+  (state, distance, battery, `ctrl_mode`, ESTOP), **ARM/DISARM**, **mission** (none /
+  ball / cone), hold-to-drive **WASD** teleop, and the mission/proximity banners.
+- **Calibration** — pick `green_ball`/`cone`, drag the **H/S/V + min_area** sliders and
+  watch the mask clean up live, then **distance**: hold the object at a known distance →
+  *Calibrate from view* → metres. Copy the shown `config.yaml` snippet to keep it.
+
+**Mission behaviour** (distance-driven; thresholds in `config.yaml`): **ball** →
+*retrieved* + DISARM at `ball_retrieve_m`; **cone** → *danger* + back-off + DISARM at
+`cone_danger_m`; **teleop** → operator warning within `proximity_warn_m`.
+
+Two ways to run it (details in **[../docs/REAL_PI_NATIVE.md](../docs/REAL_PI_NATIVE.md) §8b**):
 
 ```bash
 # A) on the Pi (recommended): loop + panel in one process
@@ -94,11 +107,12 @@ overrides CAN and the base will fault to EXCEPTION (doc **§5.4**).
 
 | File | What |
 | --- | --- |
-| `run.py` | the loop: Controls hub (stdin + web), ARM gate, watchdog, e-stop, viz/record |
-| `config.yaml` | all knobs (ROS-free subset of `minibunker.yaml` + `can:`) |
+| `run.py` | the loop: Controls hub (stdin + web), ARM gate, watchdog, e-stop, viz/record, mission outcomes |
+| `config.yaml` | all knobs — HSV, `detector/distance`, mission thresholds (`ball_retrieve_m` …), `behavior/`, `can:` |
 | `start_real_pi.sh` · `can_up.sh` | one-command start (`mb`) · gs_usb CAN bring-up |
-| `minibunker_real/bunker_can.py` | AgileX protocol-v2 CAN driver (NEW) |
+| `minibunker_real/bunker_can.py` | AgileX protocol-v2 CAN driver (replaces `bunker_base`) |
 | `minibunker_real/webpanel.py` · `panel/` | Flask `--web` panel + page (Pi/laptop served) |
-| `minibunker_real/{detector,perception_state,fsm}.py` | lifted from the sim ROS nodes |
+| `minibunker_real/{detector,perception_state,fsm}.py` | HSV detector / packing+annotation / FSM with mission completion — lifted from the sim nodes |
+| `minibunker_real/distance.py` | one-point pixel distance estimator |
 | `minibunker_real/camera.py` | picamera2 / V4L2 / video / synthetic source |
-| `tests/` | FSM, detector, CAN (incl. vcan0 loopback) |
+| `tests/` | FSM, detector, distance, CAN (incl. vcan0 loopback) |
