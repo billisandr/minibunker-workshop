@@ -523,6 +523,23 @@ snippet into `config.yaml` so it persists. If green can't be separated from the
 floor/shadows even when tuned, that's when the **CNN backend** (`detector/backend:
 cnn` + a trained `.onnx`) earns its keep.
 
+### Distance (pixel estimate)
+A one-point pinhole estimate lives in the **Distance** subsection of the
+Calibration tab: `distance_m = ref_distance_m × ref_height_px / bbox_height_px`
+(`minibunker_real/distance.py`). **Calibrate once per object:** get a clean
+detection, type the **known distance**, click **Calibrate from view** — it grabs
+the live bbox height as the reference; the live estimate + a `config.yaml` snippet
+update. The Drive telemetry then shows the target distance in metres.
+
+CLI alternative (no browser):
+```bash
+python tests/distance_calibrate.py --class green_ball --dist 1.0   # medians 20 frames
+```
+Config lives in `detector/distance` (`ref_height_px: 0` = uncalibrated → no estimate).
+To make the rover **stop at a real distance**, set
+`behavior/approach/collect_distance_m: <metres>` — the FSM then COLLECTs at that
+distance for a calibrated class, and falls back to `collect_bbox_frac` otherwise.
+
 ---
 
 ## 9. Status summary (2026-06-26, `raspberrypi2`)

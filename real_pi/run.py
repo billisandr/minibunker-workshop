@@ -39,9 +39,10 @@ import cv2
 
 from minibunker_real.config import Config
 from minibunker_real.camera import Camera
-from minibunker_real.detector import make_detector
+from minibunker_real.detector import LABELS, NAME_TO_CLASS, make_detector
 from minibunker_real import perception_state as psmod
 from minibunker_real.fsm import BehaviorFSM
+from minibunker_real.distance import DistanceEstimator
 
 
 def parse_args():
@@ -153,6 +154,7 @@ def main():
     cam = Camera(cfg)
     backend_name, detector = make_detector(cfg.block("detector"))
     fsm = BehaviorFSM(cfg.block("behavior"))
+    dist_est = DistanceEstimator(cfg.block("detector/distance", {}))
     cone_danger = float(cfg.get("behavior/avoid/cone_danger_frac", 0.35))
     hazard_items = cfg.get("mission/hazard_items", ["cone"]) or []
 
@@ -189,7 +191,7 @@ def main():
         web = Telemetry()
         hsv_detector = detector if backend_name == "hsv" else None
         start_web(controls, web, host=args.web_host, port=args.web_port,
-                  hsv_detector=hsv_detector)
+                  hsv_detector=hsv_detector, dist_est=dist_est)
         print(f"[run] web panel: http://<this-host>:{args.web_port}  "
               f"(bind {args.web_host})")
 
@@ -225,6 +227,15 @@ def main():
             dets, _mask = detector.detect(frame)
             ps = psmod.pack(dets, w, h, target_cls, hazard_classes, cone_danger)
 
+            # pixel distance: for the followed class (FSM/telemetry) and the
+            # calibration-selected class (the panel's distance readout).
+            target_h_px = _bbox_h_px(dets, target_cls)
+            target_name = LABELS.get(target_cls)
+            target_dist = dist_est.estimate(target_name, target_h_px) if target_name else None
+            cal_cls = NAME_TO_CLASS.get(controls.mask_class)
+            cal_h_px = _bbox_h_px(dets, cal_cls)
+            cal_dist = dist_est.estimate(controls.mask_class, cal_h_px)
+
             # ARM edge handling: on ARM, (re)enable CAN mode so the base listens.
             if controls.armed and not was_armed and bunker and enable_can_mode:
                 bunker.enable_can_mode()
@@ -233,7 +244,8 @@ def main():
                 fsm.on_disarm()
             was_armed = controls.armed
 
-            lin, ang, state = fsm.step(ps, controls.armed, follow, controls.teleop(), t0)
+            lin, ang, state = fsm.step(ps, controls.armed, follow, controls.teleop(),
+                                       t0, target_dist=target_dist)
 
             if bunker:
                 if controls.armed:
@@ -268,7 +280,8 @@ def main():
                     writer.write(annotated)
             if web is not None:
                 web.update(_snapshot(state, controls, lin, ang, follow,
-                                     backend_name, ps, len(dets), bunker, rate),
+                                     backend_name, ps, len(dets), bunker, rate,
+                                     target_dist, target_h_px, cal_dist, cal_h_px),
                            annotated)
                 if backend_name == "hsv":
                     masks = getattr(detector, "last_masks", {})
@@ -311,7 +324,15 @@ def main():
             cv2.destroyAllWindows()
 
 
-def _snapshot(state, controls, lin, ang, follow, backend, ps, n_dets, bunker, rate):
+def _bbox_h_px(dets, cls):
+    """Largest bbox height (px) among detections of `cls` (0 if none).
+    det tuple = (cls, x, y, w, h, score) -> height is index 4."""
+    hs = [d[4] for d in dets if d[0] == cls]
+    return max(hs) if hs else 0
+
+
+def _snapshot(state, controls, lin, ang, follow, backend, ps, n_dets, bunker, rate,
+              target_dist=None, target_h_px=0, cal_dist=None, cal_h_px=0):
     """Build the JSON-able telemetry dict for the web panel."""
     snap = {
         "state": state, "armed": controls.armed, "cmd_lin": round(lin, 3),
@@ -320,6 +341,12 @@ def _snapshot(state, controls, lin, ang, follow, backend, ps, n_dets, bunker, ra
         "target_seen": ps[0] > 0.5, "target_cx": round(ps[1], 3),
         "target_h": round(ps[3], 3), "hazard_seen": ps[4] > 0.5,
         "hazard_danger": ps[5] > 0.5,
+        # pixel distance
+        "target_dist_m": round(target_dist, 2) if target_dist else None,
+        "target_h_px": int(target_h_px),
+        "cal_class": controls.mask_class,
+        "cal_dist_m": round(cal_dist, 2) if cal_dist else None,
+        "cal_h_px": int(cal_h_px),
     }
     if bunker is not None:
         s = bunker.state

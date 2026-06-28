@@ -50,6 +50,14 @@ detector:
       min_area: 1200
       close_ksize: [61, 9]
       open_ksize: 3
+  # Pixel distance estimator (one-point reference per object). Calibrate via the
+  # UI Calibration tab or tests/distance_calibrate.py:  place the object at a known
+  # distance, capture its bbox height (px). distance = ref_distance_m * ref_height_px
+  # / current_bbox_height_px. ref_height_px: 0 = uncalibrated (estimate disabled).
+  distance:
+    enabled: true
+    green_ball: { ref_distance_m: 1.0, ref_height_px: 0 }
+    cone:       { ref_distance_m: 1.0, ref_height_px: 0 }
 
 behavior:
   arm_on_start: false         # SAFETY: boot DISARMED (no motion until ARMed)
@@ -59,7 +67,9 @@ behavior:
   approach:
     steer_gain: 0.8
     forward_speed: 0.25
-    collect_bbox_frac: 0.45
+    collect_bbox_frac: 0.45     # STOP when target bbox height / frame >= this …
+    collect_distance_m: null    # … OR (if set + the class is distance-calibrated)
+                                # STOP at this many metres. null = use bbox_frac.
   collect:
     pause_sec: 5.0
     turn_speed: 0.9

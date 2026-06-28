@@ -88,7 +88,7 @@ def _hsv_ranges(hsv_detector):
     return out
 
 
-def create_app(controls, telemetry, hsv_detector=None):
+def create_app(controls, telemetry, hsv_detector=None, dist_est=None):
     from flask import Flask, Response, jsonify, request, send_from_directory
 
     app = Flask(__name__, static_folder=None)
@@ -188,13 +188,38 @@ def create_app(controls, telemetry, hsv_detector=None):
         controls.set_mask_class(cls)
         return jsonify(ok=True, ranges=_hsv_ranges(hsv_detector))
 
+    # -- pixel distance calibration ----------------------------------------
+    @app.route("/api/distance", methods=["GET", "POST", "OPTIONS"])
+    def distance():
+        if request.method == "OPTIONS":
+            return ("", 204)
+        if dist_est is None:
+            return jsonify(ok=False, error="distance estimator not active"), 400
+        if request.method == "GET":
+            return jsonify(refs=dist_est.refs())
+        cls = request.args.get("cls", "green_ball")
+        if cls not in ("green_ball", "cone"):
+            return jsonify(ok=False, error="bad cls"), 400
+        try:
+            dist_m = float(request.args.get("distance_m", "1.0"))
+            h_px = int(request.args.get("height_px", "0"))
+        except ValueError:
+            return jsonify(ok=False, error="bad params"), 400
+        if h_px <= 0:
+            return jsonify(ok=False, error="no detection (height_px=0) — get the "
+                           "object in view first"), 400
+        dist_est.calibrate(cls, dist_m, h_px)
+        return jsonify(ok=True, refs=dist_est.refs())
+
     return app
 
 
-def start_web(controls, telemetry, host="0.0.0.0", port=8080, hsv_detector=None):
+def start_web(controls, telemetry, host="0.0.0.0", port=8080, hsv_detector=None,
+              dist_est=None):
     """Launch Flask in a daemon thread. Returns immediately."""
     try:
-        app = create_app(controls, telemetry, hsv_detector=hsv_detector)
+        app = create_app(controls, telemetry, hsv_detector=hsv_detector,
+                         dist_est=dist_est)
     except ImportError as exc:  # pragma: no cover
         print(f"[webpanel] Flask not installed ({exc}). `pip install flask` to "
               "enable --web. Continuing without the panel.")

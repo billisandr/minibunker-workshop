@@ -53,8 +53,18 @@ class BehaviorFSM:
         self.state = STOP
         self.collect_phase = None
 
+    def _reached_target(self, target_seen, h_frac, target_dist):
+        """COLLECT trigger: real distance if configured + calibrated, else the
+        bbox-height fraction proxy."""
+        if not target_seen:
+            return False
+        cd = self._g("approach/collect_distance_m", None)
+        if cd is not None and target_dist is not None and target_dist > 0:
+            return target_dist <= float(cd)
+        return h_frac >= float(self._g("approach/collect_bbox_frac", 0.45))
+
     # -- main step -----------------------------------------------------------
-    def step(self, ps, armed, follow, teleop, now):
+    def step(self, ps, armed, follow, teleop, now, target_dist=None):
         if not armed:
             self.state = STOP
             return 0.0, 0.0, STOP
@@ -72,7 +82,6 @@ class BehaviorFSM:
         scan_w = float(self._g("search/scan_angular_speed", 0.5))
         steer_gain = float(self._g("approach/steer_gain", 0.8))
         fwd = float(self._g("approach/forward_speed", 0.25))
-        collect_frac = float(self._g("approach/collect_bbox_frac", 0.45))
         backoff = float(self._g("avoid/backoff_speed", -0.15))
         turn = float(self._g("avoid/turn_speed", 0.6))
 
@@ -94,7 +103,7 @@ class BehaviorFSM:
             self.state = AVOID
             lin = backoff
             ang = -turn if hazard_cx >= 0 else turn
-        elif target_seen and h_frac >= collect_frac:
+        elif self._reached_target(target_seen, h_frac, target_dist):
             self._begin_collect(now)
         elif target_seen:
             self.state = APPROACH

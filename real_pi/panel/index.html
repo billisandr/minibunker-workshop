@@ -111,6 +111,7 @@
       <span class="k">vehicle_state</span><span class="v" id="t_vstate">–</span>
       <span class="k">actual v</span><span class="v" id="t_actual">–</span>
       <span class="k">target</span><span class="v" id="t_target">–</span>
+      <span class="k">distance</span><span class="v" id="t_dist">–</span>
       <span class="k">hazard</span><span class="v" id="t_hazard">–</span>
       <span class="k">backend</span><span class="v" id="t_backend">–</span>
     </div>
@@ -130,6 +131,24 @@
     <div class="hint">Drag until the <b>mask</b> (under the camera) shows a clean blob
       on the object and drops shadows. Then paste this into
       <code>detector/hsv</code> in config.yaml.</div>
+
+    <h2 style="margin-top:16px">Distance (pixel estimate)</h2>
+    <div class="grid">
+      <span class="k">class</span><span class="v" id="d_cls">–</span>
+      <span class="k">bbox height</span><span class="v" id="d_hpx">–</span>
+      <span class="k">estimated</span><span class="v" id="d_est">–</span>
+      <span class="k">reference</span><span class="v" id="d_ref">–</span>
+    </div>
+    <div class="sl" style="grid-template-columns:auto 1fr auto; margin-top:8px">
+      <label>known dist (m)</label>
+      <input type="number" id="knownDist" value="1.0" step="0.1" min="0.05"
+             style="background:#0b0f14;color:var(--fg);border:1px solid var(--line);border-radius:6px;padding:5px 8px;font:inherit">
+      <button class="act" onclick="calibrateDist()">Calibrate from view</button>
+    </div>
+    <pre id="distyaml">—</pre>
+    <div class="hint">Hold the object at the known distance with a clean detection,
+      then calibrate. To stop at metres, set
+      <code>behavior/approach/collect_distance_m</code> in config.yaml.</div>
   </div>
 </div>
 
@@ -154,7 +173,7 @@ function setTab(t){
   document.body.classList.toggle("cal", t==="cal");
   $("tabDrive").classList.toggle("sel", t==="drive");
   $("tabCal").classList.toggle("sel", t==="cal");
-  if (t==="cal") loadHsv();
+  if (t==="cal"){ loadHsv(); loadDist(); }
 }
 
 // --- teleop hold ---
@@ -214,7 +233,7 @@ function onSlider(){
          `&hu=${g("hu")}&su=${g("su")}&vu=${g("vu")}&min_area=${g("min_area")}`);
   },120);
 }
-async function selClass(c){ curClass=c; await post("/api/maskclass?cls="+c); populate(); }
+async function selClass(c){ curClass=c; await post("/api/maskclass?cls="+c); populate(); renderDist(); }
 async function loadHsv(){
   try {
     const r=await fetch(base()+"/api/hsv",{cache:"no-store"});
@@ -224,6 +243,26 @@ async function loadHsv(){
   } catch(e){ $("calNote").textContent="cannot reach API."; }
 }
 buildSliders();
+
+// --- distance calibration ---
+let lastCalHpx=0, distRefs=null;
+function renderDist(){
+  if(!distRefs) return;
+  const r=distRefs[curClass]||{};
+  $("d_ref").textContent = r.calibrated ? `${r.ref_height_px}px @ ${r.ref_distance_m}m` : "(uncalibrated)";
+  $("distyaml").textContent =
+    `  distance:\n    ${curClass}: { ref_distance_m: ${r.ref_distance_m}, ref_height_px: ${r.ref_height_px} }`;
+}
+async function loadDist(){
+  try{ const r=await fetch(base()+"/api/distance",{cache:"no-store"});
+       if(r.ok){ distRefs=(await r.json()).refs; renderDist(); } }catch(e){}
+}
+async function calibrateDist(){
+  if(lastCalHpx<=0){ alert("No detection yet — get the object in view with a clean mask first."); return; }
+  const d=$("knownDist").value;
+  await post(`/api/distance?cls=${curClass}&distance_m=${d}&height_px=${lastCalHpx}`);
+  loadDist();
+}
 
 // --- telemetry poll ---
 function pill(t,c){ return `<span class="pill" style="background:${c};color:#04121a">${t}</span>`; }
@@ -236,7 +275,12 @@ async function poll(){
     $("t_cmd").textContent=`${s.cmd_lin>=0?"+":""}${s.cmd_lin} / ${s.cmd_ang>=0?"+":""}${s.cmd_ang}`;
     $("t_backend").textContent=s.backend+" ("+s.n_dets+" dets)";
     $("t_target").innerHTML=s.target_seen?pill("seen cx="+s.target_cx,"#39c5cf"):"—";
+    $("t_dist").textContent=s.target_dist_m!=null?s.target_dist_m+" m":(s.target_h_px?s.target_h_px+" px (uncal)":"—");
     $("t_hazard").innerHTML=s.hazard_seen?pill(s.hazard_danger?"DANGER":"seen","#d29922"):"—";
+    // distance calibration readouts (selected class)
+    $("d_cls").textContent=s.cal_class; lastCalHpx=s.cal_h_px||0;
+    $("d_hpx").textContent=(s.cal_h_px||0)+" px";
+    $("d_est").textContent=s.cal_dist_m!=null?s.cal_dist_m+" m":"(uncalibrated)";
     document.querySelectorAll("#mission button").forEach(b=>b.classList.toggle("sel",b.dataset.m===s.follow));
     $("armBtn").classList.toggle("on",s.armed); $("armBtn").classList.toggle("off",!s.armed);
     const show=(el,on,txt)=>{ el.style.display=on?"block":"none"; if(on&&txt)el.textContent=txt; };
