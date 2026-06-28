@@ -11,17 +11,16 @@ import sys
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 from minibunker_real.fsm import (  # noqa: E402
-    APPROACH, AVOID, SEARCH, STOP, TELEOP, BehaviorFSM,
+    APPROACH, AVOID, BACKUP, DONE, SEARCH, STOP, TELEOP, BehaviorFSM,
 )
 
 # minimal behavior block (defaults mirror config.yaml)
 CFG = {
     "rate_hz": 20.0,
     "search": {"scan_angular_speed": 0.5},
-    "approach": {"steer_gain": 0.8, "forward_speed": 0.25, "collect_bbox_frac": 0.45},
-    "collect": {"pause_sec": 0.1, "turn_speed": 0.9, "turn_sec_min": 0.1,
-                "turn_sec_max": 0.1, "away_speed": 0.25, "away_sec_min": 0.1,
-                "away_sec_max": 0.1},
+    "approach": {"steer_gain": 0.8, "forward_speed": 0.25, "collect_bbox_frac": 0.45,
+                 "ball_retrieve_m": 0.7, "cone_danger_m": 0.5,
+                 "cone_backup_sec": 0.5, "cone_backup_speed": -0.15},
     "avoid": {"cone_danger_frac": 0.35, "backoff_speed": -0.15, "turn_speed": 0.6},
     "limits": {"max_linear": 0.4, "max_angular": 1.0, "lost_frames": 15},
     "teleop": {"timeout_ms": 400, "linear_speed": 0.25, "angular_speed": 0.8},
@@ -69,19 +68,46 @@ def test_avoid_has_priority_and_backs_off():
     assert ang2 == CFG["avoid"]["turn_speed"]
 
 
-def test_collect_then_retreat_then_search():
+def test_ball_retrieve_at_distance():
     fsm = BehaviorFSM(CFG)
-    # target close enough (h >= collect_frac) -> enter COLLECT
-    fsm.step(ps(target_seen=1, cx=0.0, h=0.6), True, "ball", None, 0.0)
-    assert fsm.collect_phase == "pause"
-    # advance past pause -> turn -> away -> back to SEARCH (tiny durations in CFG)
-    states = []
-    t = 0.2
-    for _ in range(8):
-        _, _, st = fsm.step(ps(target_seen=1, cx=0.0, h=0.6), True, "ball", None, t)
-        states.append(st)
-        t += 0.2
-    assert SEARCH in states          # sequence completes and resumes searching
+    # ball within ball_retrieve_m (0.7) -> RETRIEVED outcome, stop
+    lin, ang, st = fsm.step(ps(target_seen=1, cx=0.0, h=0.1), True, "ball", None, 0.0,
+                            target_dist=0.6)
+    assert st == DONE and lin == 0.0 and ang == 0.0
+    assert fsm.outcome == "ball_retrieved" and fsm.message_kind == "success"
+
+
+def test_ball_not_yet_reached_approaches():
+    fsm = BehaviorFSM(CFG)
+    # ball still far (1.2 m > 0.7) -> APPROACH, no outcome
+    _, _, st = fsm.step(ps(target_seen=1, cx=0.3, h=0.1), True, "ball", None, 0.0,
+                        target_dist=1.2)
+    assert st == APPROACH and fsm.outcome is None
+
+
+def test_cone_danger_backup_then_outcome():
+    fsm = BehaviorFSM(CFG)
+    # cone within cone_danger_m (0.5) -> BACKUP (reverse), danger message, no outcome yet
+    lin, ang, st = fsm.step(ps(target_seen=1, cx=0.0, h=0.1), True, "cone", None, 0.0,
+                            target_dist=0.4)
+    assert st == BACKUP and lin < 0.0
+    assert fsm.message_kind == "danger" and fsm.outcome is None
+    # keep backing while within the 0.5 s window
+    _, _, st = fsm.step(ps(target_seen=1, cx=0.0, h=0.1), True, "cone", None, 0.3,
+                        target_dist=0.4)
+    assert st == BACKUP and fsm.outcome is None
+    # past the window -> outcome fires, stop
+    lin, _, st = fsm.step(ps(target_seen=1, cx=0.0, h=0.1), True, "cone", None, 0.7,
+                          target_dist=0.4)
+    assert st == DONE and lin == 0.0 and fsm.outcome == "cone_danger"
+
+
+def test_uncalibrated_falls_back_to_bbox_frac():
+    fsm = BehaviorFSM(CFG)
+    # no distance -> uses collect_bbox_frac (0.45); h=0.6 >= 0.45 -> ball retrieved
+    _, _, st = fsm.step(ps(target_seen=1, cx=0.0, h=0.6), True, "ball", None, 0.0,
+                        target_dist=None)
+    assert st == DONE and fsm.outcome == "ball_retrieved"
 
 
 def test_teleop_watchdog_zeros_on_stale():

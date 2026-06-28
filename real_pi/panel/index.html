@@ -32,8 +32,9 @@
   img.feed { width:100%; border-radius:8px; background:#000; aspect-ratio:4/3; object-fit:contain; }
   .feedlbl { color:var(--mut); font-size:12px; margin:8px 0 2px; }
   .banner { display:none; margin:0 0 12px; padding:8px 12px; border-radius:8px; font-weight:bold; }
-  #estop, #modewarn { background:#3a2a00; color:var(--amb); border:1px solid var(--amb); }
-  #canerr { background:#3a1010; color:#ff6b6b; border:1px solid var(--red); }
+  #estop, #modewarn, #proxwarn { background:#3a2a00; color:var(--amb); border:1px solid var(--amb); }
+  #canerr, #missionmsg.danger { background:#3a1010; color:#ff6b6b; border:1px solid var(--red); }
+  #missionmsg.success { background:#10240f; color:#3fb950; border:1px solid var(--grn); }
   .grid { display:grid; grid-template-columns:auto 1fr; gap:4px 14px; }
   .grid .k { color:var(--mut); } .grid .v { text-align:right; }
   .pill { display:inline-block; padding:1px 8px; border-radius:999px; font-weight:bold; }
@@ -73,6 +74,8 @@
   <!-- ===== Camera + mask (both tabs) ===== -->
   <div class="card">
     <h2>Camera</h2>
+    <div id="missionmsg" class="banner"></div>
+    <div id="proxwarn" class="banner"></div>
     <div id="estop" class="banner">⚠ E-STOP ENGAGED — motors disabled</div>
     <div id="canerr" class="banner">⚠ CAN TX error</div>
     <div id="modewarn" class="banner"></div>
@@ -281,6 +284,16 @@ async function poll(){
     $("d_cls").textContent=s.cal_class; lastCalHpx=s.cal_h_px||0;
     $("d_hpx").textContent=(s.cal_h_px||0)+" px";
     $("d_est").textContent=s.cal_dist_m!=null?s.cal_dist_m+" m":"(uncalibrated)";
+    // mission completion banner (persists) + proximity warning
+    const mm=$("missionmsg");
+    if(s.mission_msg){ mm.style.display="block";
+      mm.className="banner "+(s.mission_msg_kind==="danger"?"danger":"success");
+      mm.textContent=(s.mission_msg_kind==="danger"?"⛔ ":"✅ ")+s.mission_msg; }
+    else mm.style.display="none";
+    const pw=$("proxwarn");
+    if(s.proximity_warn){ pw.style.display="block";
+      pw.textContent="⚠ object within "+s.nearest_obj_m+" m"; }
+    else pw.style.display="none";
     document.querySelectorAll("#mission button").forEach(b=>b.classList.toggle("sel",b.dataset.m===s.follow));
     $("armBtn").classList.toggle("on",s.armed); $("armBtn").classList.toggle("off",!s.armed);
     const show=(el,on,txt)=>{ el.style.display=on?"block":"none"; if(on&&txt)el.textContent=txt; };

@@ -545,6 +545,20 @@ once calibrated (e.g. `b 0.85m`), else name + score (`b 0.79`). Set the short
 names in `detector/display_names` (e.g. `green_ball: b`, `cone: c`) — annotation
 only; it does **not** change `mission/follow_item` or the HSV/distance class keys.
 
+### Mission completion + proximity (distance-driven behaviour)
+Distance-calibrate the classes, then the rover acts on **real metres** (all
+thresholds are in `config.yaml` so you can tune them):
+
+| Mission | At distance | Behaviour |
+| --- | --- | --- |
+| **ball** | `approach/ball_retrieve_m` (0.7 m) | **RETRIEVED** — stop, log "ball retrieved", panel **success banner**, switch to mission `none` + **DISARM** |
+| **cone** | `approach/cone_danger_m` (0.5 m) | **DANGER** — panel **danger banner**, **back up** for `cone_backup_sec` at `cone_backup_speed`, switch to mission `none` + **DISARM** |
+| **none** (teleop) | `proximity_warn_m` (1.0 m) | any object closer → panel **proximity warning** (no motion change) |
+
+The FSM raises the event; `run.py` does the disarm + mission switch + the
+persistent banner (it clears on the next ARM). Uncalibrated classes fall back to
+`approach/collect_bbox_frac`. (This replaces the old collect→retreat cycle.)
+
 ---
 
 ## 9. Status summary (2026-06-26, `raspberrypi2`)

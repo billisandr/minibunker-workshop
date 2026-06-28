@@ -188,7 +188,9 @@ def main():
     rate = float(cfg.get("behavior/rate_hz", 20.0))
     period = 1.0 / rate
     enable_can_mode = bool(cfg.get("can/enable_can_mode", True))
+    proximity_warn_m = float(cfg.get("behavior/proximity_warn_m", 1.0))
     was_armed = False
+    mission_message = None     # persistent completion/danger banner {text, kind}
 
     # --- optional web panel ---
     web = None
@@ -242,16 +244,37 @@ def main():
             cal_h_px = _bbox_h_px(dets, cal_cls)
             cal_dist = dist_est.estimate(controls.mask_class, cal_h_px)
 
-            # ARM edge handling: on ARM, (re)enable CAN mode so the base listens.
-            if controls.armed and not was_armed and bunker and enable_can_mode:
-                bunker.enable_can_mode()
-                print("[run] sent CONTROL_MODE_CAN")
+            # nearest of ANY detected object (calibrated classes only) -> proximity
+            nearest_obj_m = None
+            for d in dets:
+                dm = dist_est.estimate(LABELS.get(d[0]), d[4])
+                if dm is not None and (nearest_obj_m is None or dm < nearest_obj_m):
+                    nearest_obj_m = dm
+            proximity_warn = (str(follow).lower() == "none" and
+                              nearest_obj_m is not None and nearest_obj_m < proximity_warn_m)
+
+            # ARM edge handling: on ARM, (re)enable CAN mode + clear stale banner.
+            if controls.armed and not was_armed:
+                mission_message = None
+                if bunker and enable_can_mode:
+                    bunker.enable_can_mode()
+                    print("[run] sent CONTROL_MODE_CAN")
             if was_armed and not controls.armed:
                 fsm.on_disarm()
             was_armed = controls.armed
 
             lin, ang, state = fsm.step(ps, controls.armed, follow, controls.teleop(),
                                        t0, target_dist=target_dist)
+
+            # mission completion (FSM raises it; run.py does the side effects)
+            if fsm.message:
+                mission_message = {"text": fsm.message, "kind": fsm.message_kind}
+            if fsm.outcome is not None:
+                print(f"[run] MISSION {fsm.outcome.upper()}: {fsm.message}")
+                controls.disarm()
+                controls.set_follow("none")   # switch to mission none
+                fsm.reset_outcome()
+                was_armed = False             # avoid re-clearing the banner next tick
 
             if bunker:
                 if controls.armed:
@@ -288,7 +311,8 @@ def main():
             if web is not None:
                 web.update(_snapshot(state, controls, lin, ang, follow,
                                      backend_name, ps, len(dets), bunker, rate,
-                                     target_dist, target_h_px, cal_dist, cal_h_px),
+                                     target_dist, target_h_px, cal_dist, cal_h_px,
+                                     mission_message, proximity_warn, nearest_obj_m),
                            annotated)
                 if backend_name == "hsv":
                     masks = getattr(detector, "last_masks", {})
@@ -311,7 +335,8 @@ def main():
                              f" vstate={s.vehicle_state}"
                              f"{' ESTOP!' if s.estop_engaged else ''}"
                              f" actual_v={s.actual_linear:+.2f}{txerr}{warn}")
-                print(f"[{state:8s}] armed={controls.armed} cmd v={lin:+.2f} w={ang:+.2f}{extra}")
+                prox = (f"  NEAR {nearest_obj_m:.2f}m!" if proximity_warn else "")
+                print(f"[{state:8s}] armed={controls.armed} cmd v={lin:+.2f} w={ang:+.2f}{extra}{prox}")
 
             # keep the loop at rate_hz (also paces the CAN motion frames)
             dt = time.monotonic() - t0
@@ -339,7 +364,8 @@ def _bbox_h_px(dets, cls):
 
 
 def _snapshot(state, controls, lin, ang, follow, backend, ps, n_dets, bunker, rate,
-              target_dist=None, target_h_px=0, cal_dist=None, cal_h_px=0):
+              target_dist=None, target_h_px=0, cal_dist=None, cal_h_px=0,
+              mission_message=None, proximity_warn=False, nearest_obj_m=None):
     """Build the JSON-able telemetry dict for the web panel."""
     snap = {
         "state": state, "armed": controls.armed, "cmd_lin": round(lin, 3),
@@ -354,6 +380,11 @@ def _snapshot(state, controls, lin, ang, follow, backend, ps, n_dets, bunker, ra
         "cal_class": controls.mask_class,
         "cal_dist_m": round(cal_dist, 2) if cal_dist else None,
         "cal_h_px": int(cal_h_px),
+        # mission completion + proximity
+        "mission_msg": mission_message["text"] if mission_message else None,
+        "mission_msg_kind": mission_message["kind"] if mission_message else None,
+        "proximity_warn": bool(proximity_warn),
+        "nearest_obj_m": round(nearest_obj_m, 2) if nearest_obj_m else None,
     }
     if bunker is not None:
         s = bunker.state
