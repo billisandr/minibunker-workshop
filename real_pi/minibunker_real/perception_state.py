@@ -76,7 +76,8 @@ def annotate(bgr, dets, st, backend_name, target_cls, state_name,
         cv2.putText(img, label, (x, max(0, y - 6)), cv2.FONT_HERSHEY_SIMPLEX,
                     0.5, colour, 2)
     follow = name(target_cls) if target_cls is not None else "none"
-    hud = "backend:%s follow:%s state:%s target:%d hazard:%d danger:%d" % (
+    # st[4]=obstacle seen (any hazard-class object), st[5]=hazard (close + in path)
+    hud = "backend:%s follow:%s state:%s target:%d obstacle:%d hazard:%d" % (
         backend_name, follow, state_name, int(st[0]), int(st[4]), int(st[5]))
     cv2.putText(img, hud, (8, 20), cv2.FONT_HERSHEY_SIMPLEX, 0.55,
                 (255, 255, 255), 2)

@@ -387,8 +387,8 @@ bash can_up.sh                # bounce can0 up (gs_usb)
 python run.py                 # autonomous: needs mission/follow_item: ball|cone
 python run.py --headless      # same, no OpenCV window (SSH without X)
 
-# keys (each + Enter):  a=ARM  d=DISARM  q=quit
-#   teleop (mission/follow_item: none):  w/s=fwd/back  j/l=turn  x=stop
+# keys (each + Enter):  r=ARM  f=DISARM  q=quit
+#   teleop (mission/follow_item: none):  w/a/s/d=drive  x=stop
 ```
 Teleop is **in-process** (one motion owner on CAN — never a second sender). Keys
 are line-buffered (work over SSH); a WASD press auto-expires via the watchdog, so

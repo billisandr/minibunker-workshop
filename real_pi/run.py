@@ -9,7 +9,7 @@
 #  as a single Python process on the Pi.
 #
 #  SAFETY (mirrors the ROS station, non-negotiable):
-#    * Boots DISARMED: no motion frame is sent until you ARM (key 'a' / web / --arm).
+#    * Boots DISARMED: no motion frame is sent until you ARM (key 'r' / web / --arm).
 #    * Hard clamp = min(behavior/limits, can/hw_max) before the wire.
 #    * Watchdog: a slow/failed frame still ticks the loop and sends zero.
 #    * Ctrl-C / any exit -> stop() (zero Twist) + set_standby() (release CAN).
@@ -19,7 +19,7 @@
 #  panel both drive it, so there is still a single motion owner on CAN.
 #
 #  Usage:
-#    python3 run.py                      # DISARMED; type 'a'<Enter> to ARM
+#    python3 run.py                      # DISARMED; type 'r'<Enter> to ARM
 #    python3 run.py --can vcan0          # dry-run on a virtual CAN bus
 #    python3 run.py --no-can             # perception-only (no bus at all)
 #    python3 run.py --headless           # no debug window (saves CPU on the Pi)
@@ -74,8 +74,8 @@ class Controls:
     Both the stdin reader (below) and the optional web panel call these methods,
     so motion still has exactly one owner. Fields are simple atomics (GIL-safe).
 
-      a = ARM    d = DISARM    q = quit
-      w/s = fwd/back   j/l = turn left/right   x = stop
+      r = ARM    f = DISARM    q = quit
+      w/s = fwd/back   a/d = turn left/right   x = stop
 
     A teleop input sets a *fresh* intent that AUTO-EXPIRES via the FSM watchdog
     (behavior/teleop/timeout_ms): the rover drives for that window then stops
@@ -112,15 +112,16 @@ class Controls:
         self._intent = (lin, ang, time.monotonic())
 
     def nudge(self, key):
-        """Map a w/s/j/l/x key to a fresh teleop intent."""
+        """Map a W/A/S/D/X drive key to a fresh teleop intent (j/l kept as turn
+        aliases). A = turn left (+angular), D = turn right (-angular)."""
         k = (key or "").lower()[:1]
         if k == "w":
             self.set_teleop(self.lin_speed, 0.0)
         elif k == "s":
             self.set_teleop(-self.lin_speed, 0.0)
-        elif k == "j":
+        elif k in ("a", "j"):
             self.set_teleop(0.0, self.ang_speed)
-        elif k == "l":
+        elif k in ("d", "l"):
             self.set_teleop(0.0, -self.ang_speed)
         elif k == "x":
             self.set_teleop(0.0, 0.0)
@@ -135,14 +136,14 @@ class Controls:
     def _stdin_loop(self):
         for line in sys.stdin:
             c = line.strip().lower()[:1]
-            if c == "a":
+            if c == "r":
                 self.arm()
-            elif c == "d":
+            elif c == "f":
                 self.disarm()
             elif c == "q":
                 self.request_quit()
                 return
-            elif c in ("w", "s", "j", "l", "x"):
+            elif c in ("w", "a", "s", "d", "j", "l", "x"):
                 self.nudge(c)
 
 
@@ -212,8 +213,8 @@ def main():
     frame_i = 0
     last_print = 0.0       # headless telemetry throttle
 
-    print("[run] DISARMED. Keys (+Enter): a=ARM d=DISARM q=quit | "
-          "teleop (mission=none): w/s=fwd/back j/l=turn x=stop")
+    print("[run] DISARMED. Keys (+Enter): r=ARM f=DISARM q=quit | "
+          "teleop (mission=none): w/s=fwd/back a/d=turn x=stop")
     try:
         while not controls.quit:
             t0 = time.monotonic()

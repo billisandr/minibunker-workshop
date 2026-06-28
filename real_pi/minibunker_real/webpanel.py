@@ -12,7 +12,7 @@
 #     GET  /api/state       -> JSON telemetry snapshot
 #     GET  /stream.mjpg     -> MJPEG of the annotated frames
 #     POST /api/arm?armed=1     -> ARM / DISARM
-#     POST /api/teleop?key=w    -> w/s/j/l/x nudge (auto-expires via watchdog)
+#     POST /api/teleop?key=w    -> w/a/s/d/x nudge (auto-expires via watchdog)
 #     POST /api/mission?follow=ball  -> none|ball|cone live override
 #
 #  Two deployment modes (same page, both supported):

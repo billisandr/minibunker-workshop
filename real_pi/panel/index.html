@@ -100,10 +100,10 @@
     <h2>Teleop <span class="hint">(mission=none)</span></h2>
     <div class="pad">
       <span class="sp"></span><button class="act" data-k="w">▲</button><span class="sp"></span>
-      <button class="act" data-k="j">◄</button><button class="act" data-k="x">■</button><button class="act" data-k="l">►</button>
+      <button class="act" data-k="a">◄</button><button class="act" data-k="x">■</button><button class="act" data-k="d">►</button>
       <span class="sp"></span><button class="act" data-k="s">▼</button><span class="sp"></span>
     </div>
-    <div class="hint">Hold a button (or keys W/S/J/L, X=stop, A=ARM, D=DISARM).</div>
+    <div class="hint">Hold a button (or keys <b>W/A/S/D</b> drive, X=stop) · <b>R</b>=ARM, <b>F</b>=DISARM.</div>
     <h2 style="margin-top:14px">Telemetry</h2>
     <div class="grid">
       <span class="k">state</span><span class="v" id="t_state">–</span>
@@ -115,7 +115,7 @@
       <span class="k">actual v</span><span class="v" id="t_actual">–</span>
       <span class="k">target</span><span class="v" id="t_target">–</span>
       <span class="k">distance</span><span class="v" id="t_dist">–</span>
-      <span class="k">hazard</span><span class="v" id="t_hazard">–</span>
+      <span class="k">obstacle</span><span class="v" id="t_hazard">–</span>
       <span class="k">backend</span><span class="v" id="t_backend">–</span>
     </div>
   </div>
@@ -194,10 +194,10 @@ document.querySelectorAll(".pad button").forEach(b=>{
 document.addEventListener("keydown",e=>{
   if(e.repeat||/input|textarea/i.test(e.target.tagName)) return;
   const k=e.key.toLowerCase();
-  if(k==="a")setArm(true); else if(k==="d")setArm(false);
-  else if("wsjl".includes(k))startHold(k); else if(k==="x")post("/api/teleop?key=x");
+  if(k==="r")setArm(true); else if(k==="f")setArm(false);
+  else if("wasd".includes(k))startHold(k); else if(k==="x")post("/api/teleop?key=x");
 });
-document.addEventListener("keyup",e=>{ if("wsjl".includes(e.key.toLowerCase()))stopHold(); });
+document.addEventListener("keyup",e=>{ if("wasd".includes(e.key.toLowerCase()))stopHold(); });
 
 // --- HSV calibration ---
 const SL=[["hl","H low",179],["hu","H high",179],["sl","S low",255],["su","S high",255],
@@ -279,7 +279,7 @@ async function poll(){
     $("t_backend").textContent=s.backend+" ("+s.n_dets+" dets)";
     $("t_target").innerHTML=s.target_seen?pill("seen cx="+s.target_cx,"#39c5cf"):"—";
     $("t_dist").textContent=s.target_dist_m!=null?s.target_dist_m+" m":(s.target_h_px?s.target_h_px+" px (uncal)":"—");
-    $("t_hazard").innerHTML=s.hazard_seen?pill(s.hazard_danger?"DANGER":"seen","#d29922"):"—";
+    $("t_hazard").innerHTML=s.hazard_seen?pill(s.hazard_danger?"HAZARD":"seen","#d29922"):"—";
     // distance calibration readouts (selected class)
     $("d_cls").textContent=s.cal_class; lastCalHpx=s.cal_h_px||0;
     $("d_hpx").textContent=(s.cal_h_px||0)+" px";
