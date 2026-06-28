@@ -17,6 +17,12 @@ reactive *space-mining* behaviour. Runs identically in **Gazebo simulation** and
 
 ## Gallery
 
+**Real MiniBunker — the native control panel** (running on the real Bunker Mini, no ROS):
+
+[![Real MiniBunker native panel](assets/mb_real_ui.png)](assets/mb_real_ui.mp4)
+
+▶ [Watch video](assets/mb_real_ui.mp4) · live camera + HSV mask, distance calibration, mission + WASD on the real rover (see [docs/REAL_PI_NATIVE.md](docs/REAL_PI_NATIVE.md))
+
 | Gazebo simulation | Streamlit control panel |
 | --- | --- |
 | ![Gazebo arena](assets/mb_sim_gz.png) | ![Control panel](assets/mb_sim_ui.png) |
