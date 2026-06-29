@@ -46,7 +46,7 @@ never needs to know which physical class it is chasing — so the identical
 target and is *not* simultaneously treated as a hazard. With only `{ball, cone}`
 in play this means following the cone currently leaves **no** active hazard; set
 `hazard_items: []` explicitly if you want that to be unambiguous, or add other
-classes once the perception backends in plan2.md §5 land.
+classes once the perception backends in plan.md §19 land.
 
 ## How to switch
 

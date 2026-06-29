@@ -1,25 +1,41 @@
-# MiniBunker Workshop — Implementation Plan
+# MiniBunker Workshop — Plan (unified)
 
-> **De-brand note (2026-06-24).** The project was renamed and fully de-branded: the
-> "SpaceMine" station name was dropped in favour of plain **"MiniBunker"**, the repo is now
-> **`minibunker-workshop`**, the Docker image is **`minibunker`**, and the Gazebo world is
-> **`minibunker_arena.world`**. References below to *"SpaceMine"*, `minibunker-spacemine-workshop`,
-> or `spacemine_arena.world` are **historical** (this is the frozen Phase-0 record — the
-> `gh repo create`/`spawn` commands were actually run under the old names). The current names
-> and the rationale live in [plan2.md](plan2.md) §2.
-
-> **Purpose of this document.** A self-contained build plan for a *new* workshop
-> station, `minibunker-spacemine-workshop`: an AgileX **Bunker Mini 2.0** tracked
-> rover that uses a **Raspberry Pi 5 + Raspberry Pi Camera** to run a **small CNN**
-> recognising two objects — a **green ball** (the "ore sample" to approach) and
-> **construction cones** (hazards to avoid) — and drives a *space-mining* behaviour
-> on top. It must run in **two interchangeable modes**: a **Gazebo simulation** and
-> the **real MiniBunker 2.0**. Everything is driven by a single **YAML config** and
-> a **Streamlit UI**. Handouts, instructor cards, and docs come at the end.
+> **This is the single, living plan for the station.** It consolidates the former
+> three-file chain — `plan.md` (Phase-0 design + architecture), `plan2.md`
+> (missions/teleop/perception roadmap) and `plan3.md` (mission/teleop delivery +
+> arena/physics + dev-mount) — into one document. Consolidated **2026-06-29**.
+> **§0–§16 are the original design backbone** and are still referenced by section
+> number from code and docs (`plan.md §11`, `§4.4`, `§10`, …) — **do not renumber
+> them**. **§17 onward** carry the current status, the delivered missions/teleop
+> work, the perception roadmap, the "how it works now" mechanisms, the remaining
+> work, and the running changelog.
 >
-> Written so a fresh session or another agent can execute it without prior context.
-> Read top to bottom once before touching code. **This session: planning + repo
-> scaffold only — no implementation code yet.**
+> **Where it stands now (2026-06-29):** the **sim is hands-on validated** — the rover
+> SEARCH→APPROACH→COLLECT→RETREAT on a green "ore" ball, AVOIDs/knocks cones, and
+> drives under WASD, all live-tunable from the Streamlit UI (HSV backend). Done:
+> rename/de-brand, missions (`follow_item`), WASD teleop, a fully config-driven
+> dynamic arena, and a dev bind-mount for no-rebuild edits. **Not done:** real-robot
+> bring-up on the Pi 5 (CAN + Pi camera), the pluggable modern-perception stages
+> (LocateAnything / SAM / Depth Anything), and the CNN actually being trained.
+> Full status in **§17**; remaining work in **§21**.
+
+> **De-brand note.** The project was renamed and fully de-branded (2026-06-24): the
+> "SpaceMine" station name was dropped for plain **"MiniBunker"**, the repo is
+> **`minibunker-workshop`**, the Docker image is **`minibunker`**, and the Gazebo world
+> is **`minibunker_arena.world`**. References below to *"SpaceMine"*,
+> `minibunker-spacemine-workshop`, or `spacemine_arena.world` are **historical** — the
+> §12 `gh repo create` commands were actually run under the old names. The genuine
+> theme (the event "Space Summer School", the "space-mining" flavour, the "ore" ball,
+> 🛰️) is kept; only the "SpaceMine" brand was removed. Rename record: §15 + §17.
+
+> **Purpose & scope.** A self-contained build + status plan for the workshop station:
+> an AgileX **Bunker Mini 2.0** tracked rover that uses a **Raspberry Pi 5 + Raspberry
+> Pi Camera** to run a **small CNN** recognising a **green ball** (the "ore sample" to
+> approach) and **construction cones** (hazards to avoid), driving a *space-mining*
+> behaviour on top. It runs in **two interchangeable modes** — a **Gazebo simulation**
+> and the **real MiniBunker 2.0** — driven by a single **YAML config** and a
+> **Streamlit UI**. Written so a fresh session can act from this one file without prior
+> context; read §0 + §17 first, then dive where needed.
 
 ---
 
@@ -201,7 +217,7 @@ between sim and real.** This is the same "swappable seam" strategy proven in
 | `/camera/camera_info` | `sensor_msgs/CameraInfo` | Optional; not required by the reactive behaviour |
 | `/minibunker/detections` | `vision_msgs/Detection2DArray` | Class id (green_ball / cone), bbox, score |
 | `/minibunker/debug_image` | `sensor_msgs/Image` | Annotated frame for Streamlit/RViz |
-| `/minibunker/perception_state` | custom (or `std_msgs`) | Convenience flags: target centroid, cone-in-path bool |
+| `/minibunker/perception_state` | `std_msgs/Float32MultiArray` | **Role-based 7-slot contract** — `target_*` = the followed class, `hazard_*` = nearest hazard (full layout in §20.3). *Originally ball-hardwired; generalised when missions landed (§18).* |
 | `/cmd_vel` | `geometry_msgs/Twist` | Behaviour output → both drive backends |
 | `/odom` | `nav_msgs/Odometry` | From whichever drive backend is active |
 
@@ -269,6 +285,14 @@ STOP (zero Twist; resume to SEARCH when something reappears)
 - **Safety convention:** `behavior_node` boots in `STOP` and publishes zero `Twist`
   until the UI/operator explicitly **arms** it. The robot never lurches on launch
   (same posture as the z1 stations' "start frozen").
+
+> **Implemented (current).** The FSM is now **role-based** — it follows whatever
+> `mission/follow_item` selects (ball *or* cone), not a hardwired ball (§18) — and
+> gained a **COLLECT → RETREAT** cycle: on reaching the target it stops, pauses
+> (`behavior/collect/pause_sec`), turns a random way and drives off before resuming
+> SEARCH, so it doesn't re-collect the same item. When `follow_item: none` it enters a
+> **TELEOP** state and passes WASD intent through the same ARM gate (§18.2). The live
+> 7-slot perception contract is §20.3.
 
 ### 4.5 Sim vs real switch — one key, two launch files
 - `platform: sim` → `minibunker_sim.launch`: Gazebo world (arena + ball + cones) +
@@ -353,6 +377,40 @@ ui:
   bridge: rosbridge          # rosbridge | sharedfile
   rosbridge_port: 9090
   refresh_hz: 10
+```
+
+### 5.1 Schema additions (post-v1)
+
+Blocks added to the same `config/minibunker.yaml` as missions/teleop/arena landed
+(see §18–§20). `detector/backend: hsv|cnn` above still works; `perception:` is the
+forward-looking superset for §19. The `arena:` values below are illustrative — the
+authoritative set lives in the repo's `minibunker.yaml`.
+
+```yaml
+mission:
+  follow_item: none          # none | ball | cone   (none => manual WASD teleop, §18.2)
+  hazard_items: [cone]       # classes to AVOID; the followed class is auto-excluded
+
+behavior:
+  collect:
+    pause_sec: 5.0           # COLLECT dwell before RETREAT (§4.4)
+  teleop:                    # WASD intent passthrough; inherits behavior/limits + watchdog
+
+perception:                  # roadmap (§19) — pluggable stages; NOT yet implemented
+  detector: hsv              # hsv | cnn | locate_anything
+  segmenter: none            # none | sam
+  depth: none                # none | depth_anything   (replaces target_h_frac proxy)
+  open_vocab_prompts: ["green ball", "construction cone"]
+  device: cpu                # cpu | cuda | tensorrt | hailo
+  max_infer_hz: 5            # throttle heavy models off the camera/control loop
+
+arena:                       # single source of truth for every sim object (§20.2)
+  objects:
+    floor:    { type: plane,     mu: 1.0 }
+    sun:      { type: light }
+    ore_ball: { type: sphere,    pose: [...], static: false, mass: 0.2, mu: 0.4, kp: 1e5, kd: 10 }
+    cone_1:   { type: cone_mesh, pose: [...], scale: 3.0, static: false, mass: 0.5, mu: 0.6, kp: 1e5, kd: 10 }
+    # cone_2, cone_3, fence ...   (dynamic props: inertia auto-computed from type+size+mass)
 ```
 
 ---
@@ -607,9 +665,13 @@ GitHub owner/visibility = **`billisandr`, PRIVATE** (matches the other stations)
 
 ## 13. Phased implementation roadmap
 
-Each phase ends with a concrete, runnable acceptance check. Do them in order. **This
-session stops at the end of Phase 0's repo-creation half (plan + repo); the rest is
-future work.**
+Each phase ends with a concrete, runnable acceptance check. Do them in order.
+
+> **Status (2026-06-29).** This original build roadmap is largely complete: **Phases
+> 0–5 + the sim are done and hands-on validated**. **Phase 6 (real robot)** is the
+> outstanding **Phase C** and **Phase 7 (docs)** is the partial **Phase H** in the
+> current enhancement roadmap — see §17.2 and §21. Beyond this list, missions, WASD
+> teleop and the dynamic arena were added later (§17–§20).
 
 - **Phase 0 — Plan & repo (THIS SESSION).** Write `plan.md`; `git init`; `.gitignore`;
   `README.md`; first commit; create private GitHub repo and push.
@@ -676,6 +738,10 @@ Follow the workspace style guides **exactly** (see `[[feedback_handout_card_deck
 
 ## 15. Decisions
 
+> **The current status of every decision/question below is tracked in §22** — several
+> "Open" items are now resolved (branding, follow-class contract, hazard set) and the
+> hardware questions are answered in `docs/HARDWARE_SETUP.md`.
+
 **Resolved (this plan's defaults):**
 - **D1.** ROS1 **Noetic in Docker**, sim + real share nodes (§4.1).
 - **D2.** Two detector backends behind one topic; **CNN default, HSV baseline** (§4.3).
@@ -716,5 +782,285 @@ Follow the workspace style guides **exactly** (see `[[feedback_handout_card_deck
 
 ---
 
-*End of plan. This session delivers Phase 0 (plan.md + private repo). Execute Phases
-1→7 for a complete sim+real station; Phases 5–6 need the real MiniBunker 2.0 + Pi 5.*
+*End of the original design backbone (§0–§16). The sections below — §17 onward —
+are the consolidated current status and forward plan, folded in from the former
+`plan2.md` (2026-06-24) and `plan3.md` (2026-06-25).*
+
+---
+
+## 17. Current status & changelog
+
+> The authoritative "where we are" section. §0–§16 describe the **design**; §17–§23
+> describe **reality** as of the last working session (2026-06-25), consolidated
+> 2026-06-29.
+
+### 17.1 What works now (sim, hands-on validated)
+- **Sim validated end-to-end** — not just "builds": `start_sim.sh` builds the Noetic
+  Docker image and launches Gazebo `minibunker_arena.world` + Bunker (with our camera
+  seam) + detector + behaviour + rosbridge + Streamlit. The rover
+  **SEARCH→APPROACH→COLLECT→RETREAT** on the ore ball, **AVOID**s/knocks cones, and
+  drives under **WASD**. Captured in the README Gallery clips.
+- **One ROS graph, two seams** (§3.1): camera source + velocity sink swap sim↔real;
+  detector + behaviour are identical. The topic contract is the anchor.
+- **Two perception backends behind one contract**: `HsvDetector` + `CnnDetector`
+  (YOLOv8-nano via onnxruntime/ultralytics/ncnn) in `detector_node.py`; backend re-read
+  each frame so the UI flips it live. **HSV is the working default; the CNN is wired but
+  untrained.**
+- **Role-based reactive FSM** (§18, §20.3): `SEARCH → APPROACH → AVOID → COLLECT →
+  RETREAT → (STOP/SEARCH)` in `behavior_node.py`. Boots DISARMED, clamps to
+  `behavior/limits`, ARM gate via `/minibunker/arm`.
+- **Missions live**: `mission/follow_item: none | ball | cone`, switchable from the UI
+  with no relaunch; `none` is the boot default and yields no autonomous motion.
+- **WASD teleop**: UI pad, physical browser keys, and a terminal `teleop_node.py` — all
+  through the single `/cmd_vel` owner (§18).
+- **Fully config-driven, dynamic arena**: every object (`floor`, `sun`, `ore_ball`,
+  `cone_1..3`, `fence`) is one `arena:` block in `minibunker.yaml`; props are dynamic,
+  knockable, and tunable (§20.2).
+- **Fast edit→relaunch** via the dev bind-mount (§20.1): interpreted files go live with a
+  plain `bash start_sim.sh`; only C++/msg changes need `--rebuild`.
+
+### 17.2 Phase status (the enhancement roadmap of §21)
+| Phase | Scope | Status |
+| --- | --- | --- |
+| R | Rename / de-brand (repo, image, world, dataset) | ✅ done (2026-06-24/25) |
+| A | `follow_item` missions + UI selector (sim) | ✅ done |
+| B | WASD teleop via behaviour pass-through + UI pad (sim) | ✅ done |
+| C | Real-robot validation on the Pi 5 (CAN + Pi camera) | ❌ not started — needs hardware |
+| D | Perception refactor to pluggable stages, HSV/CNN stay green | ❌ not started — gated by Q2 (§22) |
+| E | Depth Anything stage (real distance, replaces bbox proxy) | ❌ not started — gated by Q3/Q4 |
+| F | Open-vocab ("LocateAnything") + SAM stages + combos | ❌ not started — gated by Q2/Q3 |
+| G | Pi-5 perf pass for D–F (edge variants, accel, offload) | ❌ not started — gated by Q3 |
+| H | Docs: `PERCEPTION_MODELS.md` + QUICKSTART/HARDWARE updates | 🟡 partial — MISSIONS.md, TELEOP.md, ARENA.md done |
+
+(The original build roadmap §13 — Phases 0–5 + sim — is complete; its Phase 6 maps to C
+above and Phase 7 to H.)
+
+### 17.3 Known not-done / rough edges
+- **Real robot (Phase C):** never run through the ROS stack on hardware (CAN + Pi
+  camera). A separate no-ROS `real_pi/` native path exists — see the §21 note.
+- **CNN backend:** wired but untrained/unvalidated in sim; HSV is the working default.
+- **Physics tuning is "good enough", still iterable.** If a cone seems stuck bobbing,
+  first check whether the rover is driving *over* a short cone (~0.135 m at `scale 3.0`)
+  rather than hitting its side — raise `cone_*/scale`. Floor `mu` combines with each
+  prop's `mu` (ODE ≈ min), so a prop's low `mu` usually dominates.
+- **`st.iframe` keyboard hack:** the WASD-key listener relies on same-origin
+  `window.parent` inside the iframe — verified to render; confirm keys actually drive in
+  the browser (fallback: `st.html(..., unsafe_allow_javascript=True)`).
+
+### 17.4 Changelog
+- **2026-06-23/24 — Phase 0 (design + scaffold).** Wrote the design plan (§0–§16);
+  `git init`; private repo (under the old `minibunker-spacemine-workshop` name); added
+  the three AgileX submodules pinned (§12); scaffolded the four `minibunker_*` packages +
+  Docker; implemented Phases 1–6 (perception/behaviour/bringup/ui, sim world + camera
+  xacro, master YAML, Streamlit UI, training scripts).
+- **2026-06-24 — sim validated + full de-brand.** Sim came up clean end-to-end (HSV).
+  Dropped "SpaceMine" everywhere (titles/UI, Docker image → `minibunker`, world →
+  `minibunker_arena.world`, dataset → `minibunker`, clone URLs → `minibunker-workshop`).
+- **2026-06-25 — missions, teleop, arena, dev-mount.** Delivered Phases R/A/B: GitHub
+  rename to `billisandr/minibunker-workshop` + local dir move; role-based
+  `perception_state` (option B); `follow_item` missions live in the UI; WASD teleop (UI
+  pad + physical keys + terminal node) through the single `/cmd_vel` owner with watchdog.
+  Beyond roadmap: COLLECT→RETREAT cycle; HSV cone-detection fix (close-then-open
+  per-colour kernels); all arena props dynamic + physically tuned; single-source
+  `arena:` block + generic `arena_setup.py` SDF builder; dev bind-mount in
+  `start_sim.sh`; Streamlit deprecation fixes; README Gallery. Docs: MISSIONS.md,
+  TELEOP.md, ARENA.md.
+
+---
+
+## 18. Missions, teleop & /cmd_vel arbitration (delivered)
+
+**Status: implemented in sim (Phases A+B).** Generalises the originally ball-hardwired
+behaviour of §4.4.
+
+### 18.1 Missions — `follow_item`
+- Config: `mission/follow_item: none | ball | cone`, `mission/hazard_items: [cone]`
+  (§5.1). The user picks what the rover hunts; `none` is the default (no autonomous
+  drive → teleop, §18.2). Settable in YAML **and** live from the UI selectbox with no
+  relaunch (re-read each tick, same pattern as the detector backend).
+- **Role-based `perception_state` (option B, implemented):** instead of hardwiring
+  ball=target / cone=hazard, the detector reads `mission/follow_item` +
+  `mission/hazard_items` each frame and packs **target_*** = the followed class and
+  **hazard_*** = nearest hazard, auto-excluding the followed class from its own hazard
+  set. The 7-slot layout is the contract in §20.3 — the same contract the §19 open-vocab
+  backends want.
+- The FSM gained a **COLLECT → RETREAT** cycle (§4.4) so it doesn't re-collect the same
+  item.
+
+### 18.2 WASD teleop (when `follow_item: none`)
+- **Safety-critical design:** `behavior_node` stays the **single owner of `/cmd_vel`**.
+  Teleop publishes *intent* on `/minibunker/teleop_cmd` (Twist), passed through the
+  **same ARM gate + `behavior/limits` clamp**. No second publisher races on `/cmd_vel`;
+  DISARM stays authoritative.
+- Three input paths: the UI **WASD pad**, **physical W/A/S/D keys** in the browser
+  (X = stop), and a terminal `teleop_node.py` (run via `teleop.sh`; needs a TTY, so it is
+  **not** auto-launched).
+- **Watchdog:** if no `teleop_cmd` arrives for N ms, command zero (don't latch motion).
+
+### 18.3 /cmd_vel arbitration + ARM safety (do not regress)
+- **Single `/cmd_vel` owner = behaviour_node.** Autonomous follow, teleop pass-through,
+  and the DISARM zero-Twist all flow through it, so the ARM gate + `behavior/limits`
+  clamp are unconditional.
+- Boots **DISARMED**; DISARM publishes zero every tick and wins over any latched/teleop
+  input.
+- On the real robot, software caps are a backstop, **not** a substitute for the hardware
+  e-stop.
+
+---
+
+## 19. Modern perception backends — roadmap (not started)
+
+**Goal:** let the user opt into NVIDIA open-vocabulary localization, Meta SAM, and Depth
+Anything — individually or combined — without breaking the one-topic contract or the
+HSV/CNN baselines. The biggest remaining piece; its own mini-roadmap. **Gated by Q2–Q4
+(§22).**
+
+### 19.0 Verify upstreams first (do NOT assume)
+Pin a real, licensed, edge-viable source for each before coding; record repo +
+commit/tag + license + runtime in a new `docs/PERCEPTION_MODELS.md`:
+- **"LocateAnything" (NVIDIA)** — likely open-vocab / promptable localization. Evaluate
+  **NanoOWL** (OWL-ViT, TensorRT, Jetson), Grounding-DINO-class detectors, or the
+  specific release if it exists. Confirm an ONNX path (no NVIDIA GPU on a Pi).
+- **Segment Anything (Meta)** — SAM/SAM2 are heavy; for edge use **NanoSAM / MobileSAM /
+  EdgeSAM** + ONNX export.
+- **Depth Anything (V2)** — monocular depth; **Depth-Anything-V2-Small** → ONNX. Confirm
+  license (some variants non-commercial) and a Pi-viable size.
+
+### 19.1 Architecture — a perception pipeline with pluggable stages
+Refactor `detector_node.py` from "two backends" to a **stage registry** that composes:
+1. **Detector/localizer** → boxes(+labels): `hsv`, `cnn`, `locate_anything`.
+2. **Segmenter** (optional) → masks: `sam`.
+3. **Depth** (optional) → per-object depth: `depth_anything`.
+
+Fuse into the **same `perception_state`** (+ richer debug topics
+`/minibunker/seg_mask`, `/minibunker/depth_image`). Depth, if present, **replaces
+`target_h_frac`** as the distance signal (real distance vs bbox proxy — a big teaching
+win). Config under the `perception:` block (§5.1). Each stage loads lazily and **fails
+soft** (log + skip), exactly like `CnnDetector` today, so the validated baselines never
+break. Heavy models run on a worker thread at `perception/max_infer_hz` (1–5 Hz), never
+in the camera callback; the 15 Hz FSM uses cached results.
+
+### 19.2 Pi-5 compute reality (the real risk)
+The Pi 5 has **no NVIDIA GPU**; naive PyTorch CPU inference of these models is far below
+real-time. Design for it: prefer distilled/edge variants exported to ONNX; consider a
+**Hailo-8L AI HAT / Coral** (`perception/device: hailo`); decouple inference from
+control; reduce input resolution; offer a **laptop-offload** fallback (heavy perception
+on a networked laptop via rosbridge/ROS master, Pi does drive + camera only); always
+keep **HSV/CNN** as the guaranteed-real-time baseline so a demo never hard-depends on the
+heavy stack.
+
+---
+
+## 20. How the project works now — mechanisms a new agent MUST know
+
+1. **Dev mount = no rebuild for interpreted files.** `start_sim.sh` bind-mounts host
+   `catkin_ws/src` → container `/home/rosuser/catkin_ws/src` (read-only), so the world
+   file, `arena_setup.py`, launch files, `minibunker.yaml`, and **all Python nodes** are
+   read live — just `bash start_sim.sh` to apply. **Only** C++ / custom-message changes
+   need `--rebuild`. The image build `COPY`s + `catkin_make`s the source, and deleting
+   the image does **not** clear Docker's build cache (which previously made rebuilds
+   silently stale) — the mount sidesteps that. `MB_NO_MOUNT=1` disables it.
+2. **One arena config block.** All props live under `arena:` at the bottom of
+   `minibunker.yaml`. Each entry: `type`, size, `pose [x,y(,yaw)]`, `static`, `color`,
+   and for dynamic props `mass / mu / kp / kd`. **Inertia is auto-computed** from
+   type+size+mass (a mismatched inertia fights motion — don't hand-set unless via
+   `inertia:`). `arena_setup.py` is a generic SDF builder
+   (`sphere|box|cylinder|cone_mesh|plane|fence|light`) that spawns floor+lights first,
+   then props one at a time (Ogre race). The `.world` file holds **only** physics + a
+   baseline ambient `<scene>`.
+3. **Role-based `perception_state` contract** — 7-slot `std_msgs/Float32MultiArray`:
+
+   | idx | name | meaning |
+   | --- | --- | --- |
+   | 0 | `target_seen` | followed class present (0/1) |
+   | 1 | `target_cx_norm` | target centre x, −1..1 (0 = centre, + = right) |
+   | 2 | `target_cy_norm` | target centre y, −1..1 (+ = down) |
+   | 3 | `target_h_frac` | target bbox height / image height (**distance proxy**) |
+   | 4 | `hazard_seen` | nearest hazard present (0/1) |
+   | 5 | `hazard_danger` | hazard is big + low-centre (in danger zone) |
+   | 6 | `hazard_cx_norm` | nearest hazard centre x, −1..1 |
+
+   Slots 0–3 = the **followed class**, 4–6 = the **nearest hazard**. Detector and
+   behaviour share this; the layout comment lives at the top of both nodes. **Distance is
+   still a bbox-height proxy** (no depth) — exactly what Phase E (Depth Anything)
+   replaces.
+4. **`/cmd_vel` has one owner: behaviour_node** (§18.3). Never add a second publisher;
+   teleop feeds `/minibunker/teleop_cmd`.
+5. **Contact-tuning intuition:** ground contact = spring (`kp`) + damper (`kd`). High
+   `kp` = low sink but bouncy if underdamped → raise `kd`. Low `mu` = skids farther. The
+   rover plows via `PlanarMovePlugin` (velocity forced), so a prop's mass mainly sets
+   skid distance, not whether it gets knocked.
+
+---
+
+## 21. Remaining work & next-session phasing
+
+| Phase | Scope | Gate |
+| --- | --- | --- |
+| **C** | Real-robot bring-up of A+B on the Pi (CAN + Pi cam), e-stop in hand, low caps first | drives + teleops on hardware |
+| **D** | Detector → pluggable stage registry (§19.1); HSV/CNN become stages, stay green | baselines unaffected, UI selector |
+| **E** | Add Depth Anything stage; COLLECT/stop on real distance behind a config switch | works in sim, proxy path still selectable |
+| **F** | Add open-vocab ("LocateAnything") + SAM stages + (detector, segmenter, depth) combos | UI selectors, fail-soft |
+| **G** | Pi-5 perf pass for D–F (edge variants, accelerator, laptop-offload fallback) | documented fps on Pi |
+| **H** | `docs/PERCEPTION_MODELS.md`; update QUICKSTART/HARDWARE | — |
+
+C is independent (needs hardware); D–G are the heavy perception work and need Q2–Q4
+(§22) answered first — before any of them, do §19.0. The fastest high-value next step is
+**Phase C** if hardware is available, else **D+E** (perception refactor + Depth
+Anything).
+
+> **Note — a no-ROS real-robot path exists.** Since this plan was first written, a
+> separate `real_pi/` native-Python stack (picamera2 → detector → `python-can`, the
+> §9.4 fallback) was added for the Pi; see `docs/REAL_PI_NATIVE.md`. It does not replace
+> Phase C's ROS bring-up but is the current real-robot route; the CAN adapter is the last
+> gate there.
+
+---
+
+## 22. Open questions (current)
+
+Supersedes the "Open" list in §15; resolved items marked.
+
+1. **Branding:** ✅ resolved + applied — full de-brand; rename complete.
+2. **"LocateAnything" identity:** open — confirm the exact NVIDIA model/repo (NanoOWL? a
+   specific release? Grounding-DINO-class?) + license + an ONNX/edge path. **Gates D/F.**
+3. **Pi-5 accelerator:** open — Hailo AI HAT / Coral, or CPU-only? Decides on-device vs
+   laptop-offload. **Gates E/F/G.**
+4. **Depth meaning:** open — metric (needs calibration) vs relative + tuned threshold for
+   COLLECT. **Gates E.**
+5. **Class set for follow:** ✅ effectively resolved — role-based contract (option B)
+   implemented; currently `{ball, cone}`. Open-vocab (arbitrary prompts) is the Phase-F
+   extension of the same contract.
+6. **`cone` as target — hazard set:** ✅ resolved — the followed class is auto-excluded
+   from `hazard_items` (default `[cone]`); following the cone currently leaves no active
+   hazard (set `hazard_items: []` to be explicit).
+
+(The original hardware questions Q1/Q3/Q4/Q6 from §15 are resolved in
+`docs/HARDWARE_SETUP.md` and `docs/TRAINING.md`.)
+
+---
+
+## 23. Housekeeping / gotchas
+
+- **Dev-mount workflow:** edit interpreted files → `bash start_sim.sh` (live); only
+  C++/msg → `--rebuild`. If something *still* looks stale, you're probably off the mount
+  (`MB_NO_MOUNT` set) or it's a genuinely compiled change.
+- **`.sh` on Windows** run as `& "C:\Program Files\Git\bin\bash.exe" ./script.sh`.
+- **Repo git root** is `2.CodeRepos/minibunker-workshop/` (the subdir), **not** the
+  SpaceSmSc workspace root — use `git -C <repo>` or run from inside.
+- **Removable SanDisk (E:).** The drive can lock/unmount mid-session — `E:` then shows
+  only a ~6 MB "SanDisk Drive Unlock" partition and the project "disappears". Not data
+  loss; re-run the unlock. Don't panic-`git` against a missing path.
+- **Submodule case-collision** (`box_link.STL` / `box_Link.STL`) in `ugv_gazebo_sim` can
+  never be fully "clean" on Windows; silenced locally with `git update-index
+  --skip-worktree` (local-only). Harmless on Linux/Docker — don't "fix" it by deleting a
+  file.
+- **Videos in git:** `assets/*.mp4` (~36 MB) are committed as plain binaries
+  (`.gitattributes` marks `*.mp4 binary`, no LFS). Consider Git LFS if history bloat
+  matters.
+
+---
+
+*Space Summer School · Technical University of Crete · SenseLAB — unified plan,
+consolidated 2026-06-29 from `plan.md` / `plan2.md` / `plan3.md`. Phases 5–6/C need the
+real MiniBunker 2.0 + Pi 5.*

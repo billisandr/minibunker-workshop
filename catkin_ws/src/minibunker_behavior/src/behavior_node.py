@@ -13,7 +13,7 @@
 #        SEARCH -> APPROACH -> (AVOID) -> COLLECT -> RETREAT -> SEARCH
 #     none        -> TELEOP: yield /cmd_vel to WASD intent on /minibunker/teleop_cmd
 #  The followed class is whatever the detector packs into the target_* slots, so
-#  the same FSM follows either a ball or a cone (plan2.md §3).
+#  the same FSM follows either a ball or a cone (plan.md §18).
 #  Distance to the target is proxied by its bbox height fraction (no depth):
 #  APPROACH stops at behavior/approach/collect_bbox_frac (the "keep a minimum
 #  distance" knob — calibrate to ~0.5 m per docs/ARENA.md). On arrival the rover
@@ -24,7 +24,7 @@
 #  SAFETY: behaviour is the SINGLE owner of /cmd_vel. Autonomous follow, teleop
 #  pass-through and the DISARM zero-Twist all flow through the ONE ARM gate +
 #  behavior/limits clamp, so DISARM is always authoritative and there is never a
-#  second publisher racing on /cmd_vel (plan2.md §6). Boots DISARMED. Teleop is
+#  second publisher racing on /cmd_vel (plan.md §18.3). Boots DISARMED. Teleop is
 #  watchdogged: if no teleop_cmd arrives within behavior/teleop/timeout_ms it
 #  commands zero rather than latching the last motion.
 #

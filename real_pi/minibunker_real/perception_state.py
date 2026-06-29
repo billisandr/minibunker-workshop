@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # ============================================================================
 #  perception_state.py — role-based 7-slot packing, lifted from the ROS
-#  detector_node so the FSM contract is identical sim<->real (plan2.md §3.3 B).
+#  detector_node so the FSM contract is identical sim<->real (plan.md §20.3).
 #
 #  pack(dets, w, h, target_cls, hazard_classes, cone_danger_frac) -> [7 floats]:
 #     [0] target_seen   [1] target_cx_norm  [2] target_cy_norm  [3] target_h_frac

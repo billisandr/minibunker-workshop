@@ -131,7 +131,7 @@ docker/   start_sim.sh   start_real.sh   training/   docs/
 - [docs/HARDWARE_SETUP.md](docs/HARDWARE_SETUP.md) — Pi 5 + camera + CAN (Docker/ROS path)
 - [docs/ARENA.md](docs/ARENA.md) — physical arena + object spec
 - [docs/TRAINING.md](docs/TRAINING.md) — CNN training (Roboflow → YOLOv8n) — **deferred / out of current scope**
-- [plan.md](plan.md) — full design + phased roadmap + open decisions (§15)
+- [plan.md](plan.md) — unified plan: design backbone (§0–§16) + current status, delivered missions/teleop, perception roadmap & open decisions (§17–§23)
 
 ## Safety
 

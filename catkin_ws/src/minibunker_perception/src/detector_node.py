@@ -15,7 +15,7 @@
 #  so the Streamlit UI can flip it live.
 #
 #  perception_state Float32MultiArray layout (shared with behavior_node) — ROLE
-#  BASED, not class-based (plan2.md §3.3 option B). The detector reads the mission
+#  BASED, not class-based (plan.md §20.3, role-based contract). The detector reads the mission
 #  (follow_item + hazard_items) and packs whichever physical class is the target
 #  into the target_* slots and the nearest hazard into the hazard_* slots:
 #     [0] target_seen      (0/1)   the followed class (mission/follow_item) is present

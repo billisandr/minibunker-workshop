@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 # ============================================================================
-#  teleop_node.py — WASD keyboard teleop for the MiniBunker rover (plan2.md §4).
+#  teleop_node.py — WASD keyboard teleop for the MiniBunker rover (plan.md §18.2).
 #
 #  Publishes : /minibunker/teleop_cmd  (geometry_msgs/Twist)  — WASD *intent*
 #
 #  This node publishes intent ONLY. It is NOT a second /cmd_vel publisher:
 #  behavior_node owns /cmd_vel and only honours this intent when
 #  mission/follow_item == none (TELEOP), always through the ARM gate + clamps
-#  (plan2.md §4.2, §6). So a key press here can never bypass DISARM.
+#  (plan.md §18.2–§18.3). So a key press here can never bypass DISARM.
 #
 #  Keys:  W = forward   S = back   A = turn left   D = turn right
 #         space / K = stop      Q / Ctrl-C = quit
