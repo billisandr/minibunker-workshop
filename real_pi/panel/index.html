@@ -31,7 +31,8 @@
   #calCard { display:none; } body.cal #calCard { display:block; }
   img.feed { width:100%; border-radius:8px; background:#000; aspect-ratio:4/3; object-fit:contain; }
   .feedlbl { color:var(--mut); font-size:12px; margin:8px 0 2px; }
-  .banner { display:none; margin:0 0 12px; padding:8px 12px; border-radius:8px; font-weight:bold; }
+  .banner { visibility:hidden; margin:0 0 8px; padding:8px 12px; border-radius:8px; font-weight:bold; min-height:34px; }
+  .banner.show { visibility:visible; }
   #estop, #modewarn, #proxwarn { background:#3a2a00; color:var(--amb); border:1px solid var(--amb); }
   #canerr, #missionmsg.danger { background:#3a1010; color:#ff6b6b; border:1px solid var(--red); }
   #missionmsg.success { background:#10240f; color:#3fb950; border:1px solid var(--grn); }
@@ -286,17 +287,17 @@ async function poll(){
     $("d_est").textContent=s.cal_dist_m!=null?s.cal_dist_m+" m":"(uncalibrated)";
     // mission completion banner (persists) + proximity warning
     const mm=$("missionmsg");
-    if(s.mission_msg){ mm.style.display="block";
-      mm.className="banner "+(s.mission_msg_kind==="danger"?"danger":"success");
+    if(s.mission_msg){
+      mm.className="banner show "+(s.mission_msg_kind==="danger"?"danger":"success");
       mm.textContent=(s.mission_msg_kind==="danger"?"⛔ ":"✅ ")+s.mission_msg; }
-    else mm.style.display="none";
+    else { mm.className="banner"; mm.textContent=""; }
     const pw=$("proxwarn");
-    if(s.proximity_warn){ pw.style.display="block";
+    if(s.proximity_warn){ pw.classList.add("show");
       pw.textContent="⚠ object within "+s.nearest_obj_m+" m"; }
-    else pw.style.display="none";
+    else { pw.classList.remove("show"); pw.textContent=""; }
     document.querySelectorAll("#mission button").forEach(b=>b.classList.toggle("sel",b.dataset.m===s.follow));
     $("armBtn").classList.toggle("on",s.armed); $("armBtn").classList.toggle("off",!s.armed);
-    const show=(el,on,txt)=>{ el.style.display=on?"block":"none"; if(on&&txt)el.textContent=txt; };
+    const show=(el,on,txt)=>{ el.classList.toggle("show",on); if(on&&txt)el.textContent=txt; else if(!on) el.textContent=""; };
     if(s.can){
       $("t_batt").textContent=s.battery+" V";
       $("t_mode").textContent=s.ctrl_mode+(s.ctrl_mode===1?" (CAN)":s.ctrl_mode===0?" (STBY)":s.ctrl_mode===3?" (RC)":"");
@@ -310,7 +311,7 @@ async function poll(){
     } else {
       $("t_batt").textContent="(no CAN)"; $("t_mode").textContent="–";
       $("t_vstate").textContent="–"; $("t_actual").textContent="–";
-      [$("estop"),$("canerr"),$("modewarn")].forEach(e=>e.style.display="none");
+      [$("estop"),$("canerr"),$("modewarn")].forEach(e=>e.classList.remove("show"));
     }
   }catch(e){ $("conn").textContent="○ no connection"; $("conn").style.color="var(--red)"; }
   setTimeout(poll,300);
