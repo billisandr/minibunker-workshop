@@ -237,9 +237,12 @@ function renderYaml(){
 function onSlider(){
   SL.forEach(([id])=>$("v_"+id).textContent=$("s_"+id).value);
   renderYaml();
+  const g=id=>parseInt($("s_"+id).value);
+  if(ranges) ranges[curClass] = {
+    lower:[g("hl"),g("sl"),g("vl")], upper:[g("hu"),g("su"),g("vu")], min_area:g("min_area")
+  };
   clearTimeout(postTimer);
   postTimer=setTimeout(()=>{
-    const g=id=>$("s_"+id).value;
     post(`/api/hsv?cls=${curClass}&hl=${g("hl")}&sl=${g("sl")}&vl=${g("vl")}`+
          `&hu=${g("hu")}&su=${g("su")}&vu=${g("vu")}&min_area=${g("min_area")}`);
   },120);
