@@ -75,9 +75,9 @@ behavior:
     collect_bbox_frac: 0.45     # FALLBACK stop (target bbox height / frame) used
                                 # only when the class is NOT distance-calibrated
     # --- per-mission completion (metres; need distance calibration) ---
-    ball_retrieve_m: 0.8        # follow=ball: reach this -> RETRIEVED (collected)
+    ball_retrieve_m: 1.0        # follow=ball: reach this -> RETRIEVED (collected)
                                 #   -> log + UI message -> mission none + DISARM
-    cone_danger_m: 1.0          # follow=cone: reach this -> DANGER -> back up ->
+    cone_danger_m: 1.2         # follow=cone: reach this -> DANGER -> back up ->
                                 #   -> UI message -> mission none + DISARM
     cone_backup_sec: 1.5        # how long to reverse on cone-danger ("1 step")
     cone_backup_speed: -0.10    # reverse speed (m/s) during that backup
