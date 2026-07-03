@@ -272,10 +272,8 @@ def main():
                 mission_message = {"text": fsm.message, "kind": fsm.message_kind}
             if fsm.outcome is not None:
                 print(f"[run] MISSION {fsm.outcome.upper()}: {fsm.message}")
-                controls.disarm()
-                controls.set_follow("none")   # switch to mission none
+                controls.set_follow("none")   # switch to mission none (stays armed)
                 fsm.reset_outcome()
-                was_armed = False             # avoid re-clearing the banner next tick
 
             if bunker:
                 if controls.armed:

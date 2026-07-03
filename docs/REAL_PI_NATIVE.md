@@ -552,13 +552,14 @@ thresholds are in `config.yaml` so you can tune them):
 
 | Mission | At distance | Behaviour |
 | --- | --- | --- |
-| **ball** | `approach/ball_retrieve_m` (0.7 m) | **RETRIEVED** — stop, log "ball retrieved", panel **success banner**, switch to mission `none` + **DISARM** |
-| **cone** | `approach/cone_danger_m` (0.5 m) | **DANGER** — panel **danger banner**, **back up** for `cone_backup_sec` at `cone_backup_speed`, switch to mission `none` + **DISARM** |
+| **ball** | `approach/ball_retrieve_m` (0.7 m) | **RETRIEVED** — stop, log "ball retrieved", panel **success banner**, switch to mission `none` (stays **ARMED**) |
+| **cone** | `approach/cone_danger_m` (0.5 m) | **DANGER** — panel **danger banner**, **back up** for `cone_backup_sec` at `cone_backup_speed`, switch to mission `none` (stays **ARMED**) |
 | **none** (teleop) | `proximity_warn_m` (1.0 m) | any object closer → panel **proximity warning** (no motion change) |
 
-The FSM raises the event; `run.py` does the disarm + mission switch + the
-persistent banner (it clears on the next ARM). Uncalibrated classes fall back to
-`approach/collect_bbox_frac`. (This replaces the old collect→retreat cycle.)
+The FSM raises the event; `run.py` does the mission switch + the persistent
+banner (it clears on the next ARM edge or DISARM). Uncalibrated classes fall
+back to `approach/collect_bbox_frac`. (This replaces the old collect→retreat
+cycle.)
 
 ---
 

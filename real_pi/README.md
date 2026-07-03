@@ -61,8 +61,9 @@ ROS-only), sharing the **same Controls** as the keyboard (one motion owner). Two
   *Calibrate from view* → metres. Copy the shown `config.yaml` snippet to keep it.
 
 **Mission behaviour** (distance-driven; thresholds in `config.yaml`): **ball** →
-*retrieved* + DISARM at `ball_retrieve_m`; **cone** → *danger* + back-off + DISARM at
-`cone_danger_m`; **teleop** → operator warning within `proximity_warn_m`.
+*retrieved* + stop + mission→none at `ball_retrieve_m` (stays armed); **cone** →
+*danger* + back-off + stop + mission→none at `cone_danger_m` (stays armed); **teleop**
+→ operator warning within `proximity_warn_m`.
 
 Two ways to run it (details in **[../docs/REAL_PI_NATIVE.md](../docs/REAL_PI_NATIVE.md) §8b**):
 

@@ -6,19 +6,19 @@
 #
 #  Missions (follow):
 #     ball -> SEARCH -> APPROACH -> (AVOID a close cone) -> reach ball_retrieve_m
-#             -> RETRIEVE: stop, set outcome "ball_retrieved" (run.py disarms +
-#                mission none + "ball retrieved" message).
+#             -> RETRIEVE: stop, set outcome "ball_retrieved" (run.py switches to
+#                mission none + "ball retrieved" message; stays armed).
 #     cone -> SEARCH -> APPROACH -> reach cone_danger_m -> DANGER: back up for
-#             cone_backup_sec, then outcome "cone_danger" (run.py disarms + none +
-#             danger message).
+#             cone_backup_sec, then outcome "cone_danger" (run.py switches to none +
+#             danger message; stays armed).
 #     none -> TELEOP (WASD pass-through, watchdogged).
 #
 #  Reach test uses the calibrated pixel distance (target_dist) against the
 #  per-mission distance; if the class isn't distance-calibrated it falls back to
 #  the bbox-height fraction (approach/collect_bbox_frac).
 #
-#  Cross-cutting side effects (disarm, switch mission, show/persist the message)
-#  belong to run.py: the FSM only raises them via `self.outcome` / `self.message`.
+#  Cross-cutting side effects (switch mission, show/persist the message) belong
+#  to run.py: the FSM only raises them via `self.outcome` / `self.message`.
 # ============================================================================
 from __future__ import annotations
 

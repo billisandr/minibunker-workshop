@@ -41,7 +41,8 @@ behaviour logic also runs in **Gazebo simulation**. Fully **YAML-configurable**.
 - **Distance from pixels** — one-point calibration turns bounding-box size into metres,
   so the rover acts on **real distances** (no depth sensor).
 - **Reactive state machine** — `SEARCH → APPROACH → AVOID`, then per-mission completion:
-  **ball → retrieved + DISARM**, **cone → danger + back-off + DISARM**. Boots **DISARMED**.
+  **ball → retrieved + stop**, **cone → danger + back-off + stop** (mission resets to
+  `none`, stays **ARMED**). Boots **DISARMED**.
 - **Browser control panel (real)** — native **Flask** panel: live camera + HSV mask,
   Calibration tab, mission, WASD teleop, ARM/DISARM. The sim uses a **Streamlit** panel
   over rosbridge ([app.py](catkin_ws/src/minibunker_ui/app.py)).
@@ -166,7 +167,7 @@ substitute for the e-stop. Full ritual: [docs/REAL_PI_NATIVE.md](docs/REAL_PI_NA
 - ✅ **Sim** validated — detector → behaviour → Gazebo + the Streamlit UI.
 - ✅ **Real robot on the Pi** ([docs/REAL_PI_NATIVE.md](docs/REAL_PI_NATIVE.md)) — native
   no-ROS stack **driving under CAN**: HSV calibration + live mask, **pixel distance**,
-  **mission completion** (ball *retrieved* / cone *danger* → DISARM), teleop proximity
+  **mission completion** (ball *retrieved* / cone *danger* → stop, mission→none), teleop proximity
   warning, and the **Flask control panel** (Drive + Calibration tabs, WASD).
 - ✅ **Participant handout + instructor cards** ([../ExerciseHandouts/MiniB2_rover/](../ExerciseHandouts/MiniB2_rover/), v2).
 
