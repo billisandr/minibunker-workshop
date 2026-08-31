@@ -426,7 +426,7 @@ records an annotated video. Over SSH (no display) view them one of these ways:
 # on the Pi:
 cd /tmp/mbframes && python3 -m http.server 8000
 ```
-On your laptop open `http://raspberrypi2.local:8000` (or `http://147.27.124.71:8000`)
+On your laptop open `http://raspberrypi2.local:8000` (or the Pi's IP address)
 and click any `f000xx.jpg`. `Ctrl-C` on the Pi stops the server.
 
 ### (b) Copy to the laptop with scp
