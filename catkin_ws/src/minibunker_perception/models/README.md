@@ -1,7 +1,7 @@
 # models/
 
 Trained CNN weights live here. They are **gitignored** (binaries are released or
-fetched, never committed — plan.md §10 step 5).
+fetched, never committed).
 
 The detector loads whatever `config/minibunker.yaml -> detector.cnn.weights`
 points at. Inside the container that path is:

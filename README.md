@@ -1,42 +1,48 @@
 # AgileX MiniBunker 2.0 Workshop
 
-An AgileX Bunker Mini 2.0 tracked rover that uses a Raspberry Pi 5 with a Pi Camera and colour (HSV) vision to 
-recognise a green ball ("sample" to "collect") and construction cones ("hazards" to avoid), estimates distance from 
-pixels, and drives a reactive behaviour. The real robot runs a native, no-ROS Python stack with a browser control 
-panel; the same detection and behaviour logic also runs in Gazebo simulation. Everything is YAML-configurable.
+An AgileX Bunker Mini 2.0 tracked rover that uses a Raspberry Pi 5 with a Pi
+Camera and a small CNN to recognise a green ball (the target to approach) and
+construction cones (hazards to avoid), then drives a reactive behaviour. It
+runs identically in Gazebo simulation and on the real robot, fully
+YAML-configurable, fronted by a Streamlit knob panel.
 
-> **Status: implemented (Phases 1–6 code), pending build + hardware validation.**
-> The sim path (detector → behaviour → Gazebo) and the Streamlit UI are written; the
-> real-robot path (CAN + Pi camera) and the CNN training pipeline are scaffolded. The
-> Docker image build and the real robot have **not** been run on hardware yet. The
-> design rationale lives in **[plan.md](plan.md)**; start with **[docs/QUICKSTART.md](docs/QUICKSTART.md)**.
+> Status: implemented (Phases 1 through 6 in code), pending a build and
+> hardware validation. The sim path (detector, behaviour, Gazebo) and the
+> Streamlit UI are written; the real-robot path (CAN and Pi camera) and the
+> CNN training pipeline are scaffolded. The Docker image build and the real
+> robot haven't been run on hardware yet. Start with
+> [docs/QUICKSTART.md](docs/QUICKSTART.md).
 
 ## Gallery
 
 | Gazebo simulation | Streamlit control panel |
 | --- | --- |
 | ![Gazebo arena](assets/mb_sim_gz.png) | ![Control panel](assets/mb_sim_ui.png) |
-| ▶ [Watch video](assets/minibunker_sim_gz.mp4) · rover, cones and the ore ball in the Gazebo arena | ▶ [Watch video](assets/minibunker_sim_ui.mp4) · live camera, telemetry, ARM/DISARM, mission + WASD knobs |
+| [Watch video](assets/minibunker_sim_gz.mp4): the rover, cones, and the ball in the Gazebo arena | [Watch video](assets/minibunker_sim_ui.mp4): live camera, telemetry, ARM/DISARM, mission and WASD knobs |
 
 ## What it is
 
-- **One ROS graph, two backends** — the same [detector](catkin_ws/src/minibunker_perception/src/detector_node.py)
-  + [behaviour](catkin_ws/src/minibunker_behavior/src/behavior_node.py) nodes run in
-  sim and on the real Pi; only the camera source and the velocity sink swap
-  (`platform: sim | real`).
-- **Two perception backends** behind one `vision_msgs/Detection2DArray` topic — a
-  YOLOv8-nano **CNN** (Roboflow-trained) and a classic **HSV** colour detector (the v0
-  baseline), for a CNN-vs-classic-CV teaching contrast. Flip between them live.
-- **Reactive state machine** — `SEARCH → APPROACH → AVOID → COLLECT/STOP`, distance to
-  the ore proxied by bounding-box size (no depth). Boots **DISARMED**.
-- **Streamlit UI** — live annotated camera, telemetry, live-tunable knobs, ARM/DISARM
-  gate. Runs in a host venv over rosbridge ([app.py](catkin_ws/src/minibunker_ui/app.py)).
-- **One config** — [config/minibunker.yaml](catkin_ws/src/minibunker_bringup/config/minibunker.yaml)
+- One ROS graph, two backends. The same
+  [detector](catkin_ws/src/minibunker_perception/src/detector_node.py) and
+  [behaviour](catkin_ws/src/minibunker_behavior/src/behavior_node.py) nodes
+  run in sim and on the real Pi; only the camera source and the velocity sink
+  swap (`platform: sim | real`).
+- Two perception backends behind one `vision_msgs/Detection2DArray` topic: a
+  YOLOv8-nano CNN (Roboflow-trained) and a classic HSV colour detector (the
+  v0 baseline), giving a CNN-vs-classic-CV teaching contrast. Flip between
+  them live.
+- Reactive state machine: SEARCH, then APPROACH, then AVOID, followed by
+  COLLECT or STOP. Distance to the target is proxied by bounding-box size,
+  since there's no depth sensor. It boots disarmed.
+- Streamlit UI with live annotated camera, telemetry, live-tunable knobs, and
+  an ARM/DISARM gate. Runs in a host venv over rosbridge
+  ([app.py](catkin_ws/src/minibunker_ui/app.py)).
+- One config file: [config/minibunker.yaml](catkin_ws/src/minibunker_bringup/config/minibunker.yaml)
   is the only file a host edits.
 
 ## Quick start
 
-On Windows, run from **PowerShell** (the `.sh` scripts are invoked through Git's
+On Windows, run from PowerShell (the `.sh` scripts are invoked through Git's
 bundled bash by full path; from a Git Bash prompt drop the prefix and use
 `bash ./start_sim.sh`):
 
@@ -47,7 +53,8 @@ cd minibunker-workshop
 & "C:\Program Files\Git\bin\bash.exe" ./catkin_ws/src/minibunker_ui/run_ui.sh     # http://localhost:8501
 ```
 
-Full walkthrough (incl. a hardware-free synthetic loop) → **[docs/QUICKSTART.md](docs/QUICKSTART.md)**.
+The full walkthrough, including a hardware-free synthetic loop, is in
+[docs/QUICKSTART.md](docs/QUICKSTART.md).
 
 ## Repo layout
 
@@ -65,26 +72,21 @@ docker/   start_sim.sh   start_real.sh   training/   docs/
 
 ## Built on
 
-- [`agilexrobotics/ugv_gazebo_sim`](https://github.com/agilexrobotics/ugv_gazebo_sim) — Gazebo models (Bunker + Bunker-Mini)
+- [`agilexrobotics/ugv_gazebo_sim`](https://github.com/agilexrobotics/ugv_gazebo_sim) — Gazebo models (Bunker and Bunker-Mini)
 - [`agilexrobotics/bunker_ros`](https://github.com/agilexrobotics/bunker_ros) — ROS1 driver for the real Bunker Mini
 - [`agilexrobotics/ugv_sdk`](https://github.com/agilexrobotics/ugv_sdk) — C++ CAN layer
 
 ## Docs
 
-- [docs/QUICKSTART.md](docs/QUICKSTART.md) — run sim / hardware-free / UI / real
-- [docs/HARDWARE_SETUP.md](docs/HARDWARE_SETUP.md) — Pi 5 + camera + CAN
-- [docs/TRAINING.md](docs/TRAINING.md) — Roboflow → YOLOv8n → export
-- [docs/ARENA.md](docs/ARENA.md) — physical arena + object spec
-- [plan.md](plan.md) — full design + phased roadmap + open decisions (§15)
+- [docs/QUICKSTART.md](docs/QUICKSTART.md) — running the sim, the hardware-free loop, the UI, and the real robot
+- [docs/HARDWARE_SETUP.md](docs/HARDWARE_SETUP.md) — Pi 5, camera, and CAN setup
+- [docs/TRAINING.md](docs/TRAINING.md) — Roboflow to YOLOv8n, training and export
+- [docs/ARENA.md](docs/ARENA.md) — the physical arena and object spec
 
 ## Next steps
 
-1. Build the image + bring the sim up (`start_sim.sh`); fix any submodule build issues.
+1. Build the image and bring the sim up (`start_sim.sh`); fix any submodule build issues.
 2. Train the CNN ([docs/TRAINING.md](docs/TRAINING.md)) and validate it in sim.
 3. Real-robot bring-up on the Pi ([docs/HARDWARE_SETUP.md](docs/HARDWARE_SETUP.md)).
-4. Phase 7 docs: participant handout + instructor cards (HTML, house style) — best done
-   once the sim is validated so they can carry real screenshots.
-
----
-
-*Space Summer School · Technical University of Crete · SenseLAB*
+4. Docs: a participant handout and instructor cards, best done once the sim
+   is validated so they can carry real screenshots.
