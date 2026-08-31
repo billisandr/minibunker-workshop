@@ -1,6 +1,4 @@
-# MiniBunker Workshop
-
-AgileX MiniBunker 2.0 Workshop
+# AgileX MiniBunker 2.0 Workshop
 
 An AgileX Bunker Mini 2.0 tracked rover that uses a Raspberry Pi 5 with a Pi Camera and colour (HSV) vision to 
 recognise a green ball ("sample" to "collect") and construction cones ("hazards" to avoid), estimates distance from 
