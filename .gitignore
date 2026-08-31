@@ -35,6 +35,9 @@ data/
 .env
 roboflow_api_key*
 
+# --- Internal design log (not for public repo) ---
+plan.md
+
 # --- OS / editor ---
 .DS_Store
 Thumbs.db
