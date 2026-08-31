@@ -1,10 +1,11 @@
 # MiniBunker Workshop
 
-A Space Summer School station: an AgileX **Bunker Mini 2.0** tracked rover that uses a
-**Raspberry Pi 5 + Pi Camera** and a small **CNN** to recognise a **green ball** (the
-"ore sample" to approach) and **construction cones** (hazards to avoid), then drives a
-reactive *space-mining* behaviour. Runs identically in **Gazebo simulation** and on the
-**real robot**, fully **YAML-configurable**, fronted by a **Streamlit** knob panel.
+AgileX MiniBunker 2.0 Workshop
+
+An AgileX Bunker Mini 2.0 tracked rover that uses a Raspberry Pi 5 with a Pi Camera and colour (HSV) vision to 
+recognise a green ball ("sample" to "collect") and construction cones ("hazards" to avoid), estimates distance from 
+pixels, and drives a reactive behaviour. The real robot runs a native, no-ROS Python stack with a browser control 
+panel; the same detection and behaviour logic also runs in Gazebo simulation. Everything is YAML-configurable.
 
 > **Status: implemented (Phases 1–6 code), pending build + hardware validation.**
 > The sim path (detector → behaviour → Gazebo) and the Streamlit UI are written; the
